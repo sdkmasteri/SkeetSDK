@@ -1,16 +1,27 @@
 // Exmaple of using SkeetSDK
-// Unhide hiden checkboxes in Misc->Settings
 #include <Windows.h>
 #include <stdio.h>
 #include "Skeet.h"
 
+// Unhide hiden checkboxes in Misc->Settings
+static void UnhideElements()
+{
+    for (int i = 0; i < 20; i++)
+        Skeet.SetVisible(Skeet.menu->Tabs->Misc->Childs[2]->Elements[i], 1);
+    Skeet.Callback(Skeet.menu->Tabs->Misc->Childs[2]->Elements[11]);
+}
+
+// Loads first cfg in list
+static void LoadConfig()
+{
+    Skeet.LoadCfg();
+}
+
 DWORD WINAPI MainThread(LPVOID lpParam)
 {
-    Menu* MenuPTR = (Menu*)0x434799AC;
-    while (!MenuPTR->Pos.x) Sleep(100);
-    for (int i = 12; i < 20; i++)
-        MenuPTR->Tabs->Misc->Childs[2]->Elements[i]->header.Flags.Visible = 1;
-
+	Skeet.WaitForMenu();
+    UnhideElements();
+	LoadConfig();
     return 0;
 }
 
