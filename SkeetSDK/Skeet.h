@@ -9,6 +9,14 @@ typedef struct Child;
 typedef struct Hotkey;
 typedef union Element;
 
+typedef void(__thiscall* CallbackFn)(void*);
+typedef int(__fastcall* SetKeyFn)(void*, unsigned int, unsigned int);
+typedef void(__thiscall* TabSwitchFn)(void*, int);
+typedef unsigned int(__fastcall* HashFn)(const wchar_t*);
+typedef void(__fastcall* SetModeFn)(void*, void*, int);
+typedef void(__fastcall* SetCheckFn)(void*, int, int);
+typedef void(__fastcall* HideUiFn)(void*, void*, bool);
+
 enum Tab
 {
 	Rage,
@@ -55,7 +63,8 @@ enum PickerStatus
 
 enum UiType : unsigned char
 {
-	UiTab = 1,
+	UiNone = 0,
+	UiTab,
 	UiButton,
 	UiCheckbox,
 	UiCombobox,
@@ -67,6 +76,15 @@ enum UiType : unsigned char
 	UiTextbox,
 	UiColorPicker = 12,
 	UiMultiselect
+};
+
+enum HotkeyMode
+{
+	Inherit = -1,
+	AlwaysOn,
+	OnHotkey,
+	Toggle,
+	OffHotkey
 };
 
 typedef struct
@@ -181,9 +199,9 @@ typedef struct
 
 typedef struct
 {
-	char	pad1[0x10];
-	int		Key;		// 0x10
-	int		Mode;		// 0x14
+	char		pad1[0x10];
+	int			Key;		// 0x10
+	HotkeyMode	Mode;		// 0x14
 } HotkeyInfo;
 
 typedef struct
@@ -203,7 +221,7 @@ typedef struct
 	char			pad4[0x14];
 	int				HoveredItem;	// 0x68
 	int				SelectedItem;	// 0x6C
-	char			pad5[0x4];
+	SetModeFn		SetMode;		// 0x70
 	wchar_str		Variants[4];	// 0x74
 } HotkeyPopup;
 
@@ -218,11 +236,11 @@ struct Hotkey
 	VecCol			Color;					// 0x50
 	int				LeftPaddign;			// 0x54
 	char			pad2[0x4];
-	HotkeyInfo**	HotkeyInfo;				// 0x5C
+	HotkeyInfo*		Info;					// 0x5C
 	bool			SetingKey;				// 0x60
-	char			pad3;
-	wchar_t			KeyText[3];				// 0x62
-	char			pad4[0x6];
+	char			pad3[0x2];
+	wchar_t			KeyText[4];				// 0x62
+	char			pad4;
 	HotkeyPopup*	Popup;					// 0x6C
 };
 
@@ -418,41 +436,92 @@ struct Menu
 	Tabs*		Tabs;				// 0x54
 };
 
-typedef void(__thiscall* CallbackFn)(void*);
-typedef void(__thiscall* TabSwitchFn)(void*, int);
-typedef unsigned int(__fastcall* HashFn)(const wchar_t*);
 
 static struct SkeetSDK
 {
-	static Menu*		menu;
+	static Menu* menu;
 	static TabSwitchFn	TabSwitch;
 	static CallbackFn	Callback;
 	static HashFn		Hash;
+	static SetKeyFn		SetKey;
+	static SetCheckFn	SetCheck;
+	static HideUiFn		HideUi;
+	static void WaitForMenu()
+	{
+		while (!menu->Size.x) Sleep(50);
+	};
 	static void	SetTab(Tab tab)
 	{
 		TabSwitch(menu, tab);
 	};
-	static void WaitForMenu()
+	static void	SetVisible(Element* element, bool value)
 	{
-		while (!menu->Size.x) Sleep(50);
-	}
-	static void SetVisible(Element* element, int value)
+		HideUi(element, element, value);
+	};
+	static void SetCheckbox(Checkbox* checkbox, int value)
 	{
-		element->header.Flags.Visible = value;
-	}
-	static void SetCheckbox(Checkbox checkbox, int value)
+		SetCheck(checkbox, checkbox->Value[0], value);
+	};
+	static void SetColorRGBA(ColorPicker picker, VecCol Color)
 	{
-		checkbox.Value[0] = value;
-		Callback(&checkbox);
-	}
+		picker.Value[0] = Color;
+		Callback(&picker);
+	};
+	static void SetColorHSV(ColorPicker picker, HSV Color)
+	{
+		picker.HSV = Color;
+		Callback(&picker);
+	};
+	static void SetSlider(Slider slider, int value)
+	{
+		slider.Value[0] = value;
+		Callback(&slider);
+	};
+	static void SetCombobox(Combobox combobox, int value)
+	{
+		combobox.SelectedItem = value;
+		Callback(&combobox);
+	};
+	static void SetListbox(Listbox listbox, int value)
+	{
+		listbox.Info->SelectedItem = value;
+		Callback(&listbox);
+	};
+	static void SetHotkey(Hotkey* hotkey, int key, HotkeyMode mode = Inherit)
+	{
+		SetKey(hotkey, key, 0);
+		if (mode != Inherit)
+			hotkey->Popup->SetMode(hotkey, hotkey->Popup, mode);
+	};
+	static int ExtractKey(Hotkey hotkey)
+	{
+		return hotkey.Info->Key >> 2;
+	};
+	static int HotkeyState(Hotkey hotkey)
+	{
+		return (hotkey.Info->Key >> 1) & 1;
+	};
 	static void LoadCfg(int index = -1)
 	{
 		if (index >= 0)
-		{
-			menu->Tabs->Config->Childs[0]->Elements[0]->listbox.Info->SelectedItem = index;
-			Callback(menu->Tabs->Config->Childs[0]->Elements[0]);
-		}
+			SetListbox(menu->Tabs->Config->Childs[0]->Elements[0]->listbox, index);
 		Callback(menu->Tabs->Config->Childs[0]->Elements[3]);
+	}
+	template <typename Fn, UiType T = UiNone>
+	static void ForEach(Element** elements, Fn func)
+	{
+		while (*elements)
+		{
+			if (T == UiNone)
+			{
+				func(*elements);
+			}
+			else if ((*elements)->header.Type == T)
+			{
+				func(*elements);
+			}
+			elements++;
+		}
 	}
 } Skeet;
 
@@ -460,4 +529,8 @@ Menu*		SkeetSDK::menu		= (Menu*)0x434799AC;
 TabSwitchFn SkeetSDK::TabSwitch	= (TabSwitchFn)0x433B75D3;
 CallbackFn	SkeetSDK::Callback	= (CallbackFn)0x4334E09F;
 HashFn		SkeetSDK::Hash		= (HashFn)0x4334ADB0;
+SetKeyFn	SkeetSDK::SetKey	= (SetKeyFn)0x4341859F;
+SetCheckFn	SkeetSDK::SetCheck	= (SetCheckFn)0x433AD3C8;
+HideUiFn	SkeetSDK::HideUi	= (HideUiFn)0x433E000B;
+
 #endif // SKEET_H
