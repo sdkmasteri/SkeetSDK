@@ -153,7 +153,7 @@ typedef struct
 	Vec2				Pos;			// 0x20
 	Vec2				Size;			// 0x28
 	char				pad1[0x8];
-	XorW*				HashedName;		// 0x38
+	XorW*				CryptedName;		// 0x38
 	char				pad2[0x14];
 	VecCol				Color;			// 0x50
 	int					LeftPaddign;	// 0x54
@@ -175,7 +175,7 @@ typedef struct
 	Vec2				Pos;			// 0x20
 	Vec2				ActivateSize;	// 0x28
 	char				pad1[0x8];
-	XorW*				HashedName;		// 0x38
+	XorW*				CryptedName;	// 0x38
 	char				pad2[0x14];
 	VecCol				Color;			// 0x50
 	int					LeftPaddign;	// 0x54
@@ -191,7 +191,7 @@ typedef struct
 	Vec2				Pos;				// 0x20
 	Vec2				Size;				// 0x28
 	Vec2				OuterPadding;		// 0x30
-	XorW*				HashedName;			// 0x38
+	XorW*				CryptedName;		// 0x38
 	char				pad1[0x14];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
@@ -251,7 +251,7 @@ struct Hotkey
 	Vec2				Pos;					// 0x20
 	Vec2				ActivateSize;			// 0x28
 	Vec2				DefaultActivateSize;	// 0x30
-	XorW*				HashedName;				// 0x38
+	XorW*				CryptedName;			// 0x38
 	char				pad1[0x14];
 	VecCol				Color;					// 0x50
 	int					LeftPaddign;			// 0x54
@@ -270,7 +270,7 @@ typedef struct Button
 	Vec2				Pos;				// 0x20
 	Vec2				Size;				// 0x28
 	Vec2				DefSize;			// 0x30
-	XorW*				HashedName;			// 0x38
+	XorW*				CryptedName;		// 0x38
 	char				pad1[0x14];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
@@ -292,7 +292,7 @@ typedef struct
 {
 	float	Hue;
 	float	Saturation;
-	float	Brightness;
+	float	Value;
 } HSV, HSB;
 
 typedef struct
@@ -319,7 +319,7 @@ typedef struct
 	Vec2				Pos;				// 0x20
 	Vec2				InnerPadding;		// 0x28
 	Vec2				OuterPadding;		// 0x30
-	XorW*				HashedName;			// 0x38
+	XorW*				CryptedName;		// 0x38
 	char				pad1[0x14];
 	VecCol				Color;				// 0x50
 	Vec2				BoxPos;				// 0x54
@@ -341,7 +341,7 @@ typedef struct
 	Vec2				Pos;				// 0x20
 	Vec2				OuterPadding;		// 0x28
 	Vec2				DefOuterPadding;	// 0x30
-	XorW*				HashedName;			// 0x38
+	XorW*				CryptedName;		// 0x38
 	char				pad1[0x18];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
@@ -367,7 +367,7 @@ typedef struct
 	Vec2				Pos;				// 0x20
 	Vec2				Size;				// 0x28
 	char				pad1[0x8];
-	XorW*				HashedName;			// 0x38
+	XorW*				CryptedName;		// 0x38
 	char				pad2[0x14];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
@@ -382,7 +382,7 @@ typedef struct
 	Vec2				Pos;				// 0x20
 	Vec2				Size;				// 0x28
 	char				pad1[0x8];
-	XorW*				HashedName;			// 0x38
+	XorW*				CryptedName;		// 0x38
 	char				pad2[0x14];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
@@ -412,7 +412,7 @@ struct Child
 	Vec2				Pos;				// 0x20
 	Vec2				Size;				// 0x28
 	Vec2				DefSize;			// 0x30
-	XorW*				HashedName;
+	XorW*				CryptedName;		// 0x38
 	char				pad3[0x14];
 	VecCol				Color;				// 0x50
 	char				pad4[0x14];
@@ -462,7 +462,7 @@ typedef struct
 	CTab* Lua;
 } Tabs;
 
-struct Menu
+struct CMenu
 {
 	char		pad1[0xC];
 	Vec2		Pos;				// 0xC
@@ -479,9 +479,9 @@ struct Menu
 
 static struct SkeetSDK
 {
-	static Menu* menu;
-	static ThisFn	TabSwitch;
-	static ThisFn	SetList;
+	static CMenu*		Menu;
+	static ThisFn		TabSwitch;
+	static ThisFn		SetList;
 	static CallbackFn	Callback;
 	static HashFn		Hash;
 	static SetKeyFn		SetKey;
@@ -492,12 +492,12 @@ static struct SkeetSDK
 
 	static void WaitForMenu()
 	{
-		while (!menu->Size.x) Sleep(50);
+		while (!Menu->Size.x) Sleep(50);
 	};
 
 	static void	SetTab(Tab tab)
 	{
-		TabSwitch(menu, tab);
+		TabSwitch(Menu, tab);
 	};
 
 	static void	SetVisible(Element* element, bool value)
@@ -560,13 +560,13 @@ static struct SkeetSDK
 	static void LoadCfg(int index = -1)
 	{
 		if (index >= 0)
-			SetListbox(&menu->Tabs->Config->Childs[0]->Elements[0]->listbox, index);
-		Callback(menu->Tabs->Config->Childs[0]->Elements[3]);
+			SetListbox(&Menu->Tabs->Config->Childs[0]->Elements[0]->listbox, index);
+		Callback(Menu->Tabs->Config->Childs[0]->Elements[3]);
 	};
 
 	static int LuaCount()
 	{
-		int diff = *(int*)((int)menu->Tabs->Config + 0x9C) - *(int*)((int)menu->Tabs->Config + 0x98);
+		int diff = *(int*)((int)Menu->Tabs->Config + 0x9C) - *(int*)((int)Menu->Tabs->Config + 0x98);
 
 		return diff>>5;
 	};
@@ -574,18 +574,18 @@ static struct SkeetSDK
 	static wchar_t* LuaName(int index)
 	{
 		if (index >= LuaCount()) return NULL;
-		return menu->Tabs->Config->Childs[1]->Elements[3]->listbox.Info->Items->names[index].start;
+		return Menu->Tabs->Config->Childs[1]->Elements[3]->listbox.Info->Items->names[index].start;
 	};
 
 	static const wchar_t* CurrentConfig()
 	{
 		unsigned int hashed = *(unsigned int*)0x4347C9F8;
 		if (!hashed) return L"Default";
-		size_t count = ((unsigned int)menu->Tabs->Config->Childs[0]->Elements[0]->listbox.Info->ItemsChunkEnd - (unsigned int)menu->Tabs->Config->Childs[0]->Elements[0]->listbox.Info->Items) / sizeof(wchar_set);
+		size_t count = ((unsigned int)Menu->Tabs->Config->Childs[0]->Elements[0]->listbox.Info->ItemsChunkEnd - (unsigned int)Menu->Tabs->Config->Childs[0]->Elements[0]->listbox.Info->Items) / sizeof(wchar_set);
 		for (size_t i = 0; i < count; i++)
 		{
-			if (Hash(menu->Tabs->Config->Childs[0]->Elements[0]->listbox.Info->Items->names[i].start) == hashed)
-				return menu->Tabs->Config->Childs[0]->Elements[0]->listbox.Info->Items->names[i].start;
+			if (Hash(Menu->Tabs->Config->Childs[0]->Elements[0]->listbox.Info->Items->names[i].start) == hashed)
+				return Menu->Tabs->Config->Childs[0]->Elements[0]->listbox.Info->Items->names[i].start;
 		}
 	};
 
@@ -605,13 +605,13 @@ static struct SkeetSDK
 
 	static void AllowUnsafe(int value)
 	{
-		SetCheckbox(&menu->Tabs->Config->Childs[1]->Elements[1]->checkbox, value);
+		SetCheckbox(&Menu->Tabs->Config->Childs[1]->Elements[1]->checkbox, value);
 	};
 
 	static wchar_t* GetName(Element* element)
 	{
 		wchar_t name[128];
-		Decrypt(element->slider.HashedName, 2, name, 128);
+		Decrypt(element->slider.CryptedName, 2, name, 128);
 		return name;
 	};
 
@@ -630,7 +630,7 @@ static struct SkeetSDK
 
 	static CTab* GetTab(Tab tab)
 	{
-		return ((CTab**)menu->Tabs)[tab];
+		return ((CTab**)Menu->Tabs)[tab];
 	};
 
 	static unsigned int ChildsCount(CTab* tab)
@@ -661,7 +661,7 @@ static struct SkeetSDK
 	}
 } Skeet;
 
-Menu*		SkeetSDK::menu		= (Menu*)0x434799AC;
+CMenu*		SkeetSDK::Menu		= (CMenu*)0x434799AC;
 ThisFn		SkeetSDK::TabSwitch	= (ThisFn)0x433B75D3;
 ThisFn		SkeetSDK::SetList	= (ThisFn)0x433B0844;
 CallbackFn	SkeetSDK::Callback	= (CallbackFn)0x4334E09F;
