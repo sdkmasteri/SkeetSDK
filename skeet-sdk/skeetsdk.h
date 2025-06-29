@@ -138,10 +138,10 @@ struct XorW
 template <typename T, typename IT>
 struct Header
 {
-	void*	Vtable;		// honestly I dont even know whats inside
+	void* Vtable;		// honestly I dont even know whats inside
 	char	pad1[0x8];
 	IT		Index;		// 0xC	int CTab - tab index. in Childs - first element index. in Elements - element index
-	T*		Parent;		// 0x10
+	T* Parent;		// 0x10
 	Flags	Flags;		// 0x14
 	UiType	Type;		// 0x19
 	char	pad2[0x6];
@@ -153,12 +153,12 @@ typedef struct
 	Vec2				Pos;			// 0x20
 	Vec2				Size;			// 0x28
 	char				pad1[0x8];
-	XorW*				CryptedName;		// 0x38
+	XorW* CryptedName;		// 0x38
 	char				pad2[0x14];
 	VecCol				Color;			// 0x50
 	int					LeftPaddign;	// 0x54
 	char				pad3[0x4];
-	int*				Value;			// 0x5C
+	int* Value;			// 0x5C
 	Vec2				DefSize;		// 0x60
 	bool				Active;			// 0x68
 	bool				Tooltip;		// 0x69
@@ -175,12 +175,12 @@ typedef struct
 	Vec2				Pos;			// 0x20
 	Vec2				ActivateSize;	// 0x28
 	char				pad1[0x8];
-	XorW*				CryptedName;	// 0x38
+	XorW* CryptedName;	// 0x38
 	char				pad2[0x14];
 	VecCol				Color;			// 0x50
 	int					LeftPaddign;	// 0x54
 	char				pad3[0x4];
-	int*				Value;			// 0x5C
+	int* Value;			// 0x5C
 	Vec2				Size;			// 0x60
 	int					TextPadding;	// 0x68
 } Checkbox;
@@ -191,12 +191,12 @@ typedef struct
 	Vec2				Pos;				// 0x20
 	Vec2				Size;				// 0x28
 	Vec2				OuterPadding;		// 0x30
-	XorW*				CryptedName;		// 0x38
+	XorW* CryptedName;		// 0x38
 	char				pad1[0x14];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
 	char				pad2[0x4];
-	int*				Value;				// 0x5C
+	int* Value;				// 0x5C
 	int					Height;				// 0x60
 	char				pad3[0x4];
 	bool				Popup;				// 0x68
@@ -204,9 +204,9 @@ typedef struct
 	bool				NotNull;			// 0x6A
 	char				pad4;
 	int					HoveredItem;		// 0x6C
-	char*				StringValue;		// 0x70
-	char*				StringValueEnd;		// 0x74
-	int*				StringValueChunkEnd;// 0x78
+	char* StringValue;		// 0x70
+	char* StringValueEnd;		// 0x74
+	int* StringValueChunkEnd;// 0x78
 } Multiselect;
 
 typedef struct
@@ -251,17 +251,17 @@ struct Hotkey
 	Vec2				Pos;					// 0x20
 	Vec2				ActivateSize;			// 0x28
 	Vec2				DefaultActivateSize;	// 0x30
-	XorW*				CryptedName;			// 0x38
+	XorW* CryptedName;			// 0x38
 	char				pad1[0x14];
 	VecCol				Color;					// 0x50
 	int					LeftPaddign;			// 0x54
 	char				pad2[0x4];
-	HotkeyInfo*			Info;					// 0x5C
+	HotkeyInfo* Info;					// 0x5C
 	bool				SetingKey;				// 0x60
 	char				pad3[0x2];
 	wchar_t				KeyText[4];				// 0x62
 	char				pad4;
-	HotkeyPopup*		Popup;					// 0x6C
+	HotkeyPopup* Popup;					// 0x6C
 };
 
 typedef struct Button
@@ -270,7 +270,7 @@ typedef struct Button
 	Vec2				Pos;				// 0x20
 	Vec2				Size;				// 0x28
 	Vec2				DefSize;			// 0x30
-	XorW*				CryptedName;		// 0x38
+	XorW* CryptedName;		// 0x38
 	char				pad1[0x14];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
@@ -305,7 +305,7 @@ typedef struct
 	VecCol				Color;			// 0x50
 	int					LeftPaddign;	// 0x54
 	char				pad2[0x4];
-	VecCol*				Value;			// 0x5C
+	VecCol* Value;			// 0x5C
 	char				pad3[0x4];
 	ColorPopup			Popup;			// 0x64
 	char				pad4[0x88];
@@ -319,11 +319,11 @@ typedef struct
 	Vec2				Pos;				// 0x20
 	Vec2				InnerPadding;		// 0x28
 	Vec2				OuterPadding;		// 0x30
-	XorW*				CryptedName;		// 0x38
+	XorW* CryptedName;		// 0x38
 	char				pad1[0x14];
 	VecCol				Color;				// 0x50
 	Vec2				BoxPos;				// 0x54
-	int*				Value;				// 0x5C
+	int* Value;				// 0x5C
 	int					DefHeight;			// 0x60
 	int					Height;				// 0x64
 	int					DefInteractOffset;	// 0x68
@@ -341,7 +341,7 @@ typedef struct
 	Vec2				Pos;				// 0x20
 	Vec2				OuterPadding;		// 0x28
 	Vec2				DefOuterPadding;	// 0x30
-	XorW*				CryptedName;		// 0x38
+	XorW* CryptedName;		// 0x38
 	char				pad1[0x18];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
@@ -357,8 +357,8 @@ typedef struct
 	char		pad1[0x4];
 	int			SelectedItem;	// 0x4
 	char		pad2[0x4];
-	Names*		Items;			// 0xC
-	void*		ItemsChunkEnd;	// 0x10
+	Names* Items;			// 0xC
+	void* ItemsChunkEnd;	// 0x10
 } ListboxInfo;
 
 typedef struct
@@ -367,13 +367,13 @@ typedef struct
 	Vec2				Pos;				// 0x20
 	Vec2				Size;				// 0x28
 	char				pad1[0x8];
-	XorW*				CryptedName;		// 0x38
+	XorW* CryptedName;		// 0x38
 	char				pad2[0x14];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
 	char				pad3[0x8];
 	int					ElementSize;		// 0x60
-	ListboxInfo*		Info;				// 0x64
+	ListboxInfo* Info;				// 0x64
 } Listbox;
 
 typedef struct
@@ -382,7 +382,7 @@ typedef struct
 	Vec2				Pos;				// 0x20
 	Vec2				Size;				// 0x28
 	char				pad1[0x8];
-	XorW*				CryptedName;		// 0x38
+	XorW* CryptedName;		// 0x38
 	char				pad2[0x14];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
@@ -412,7 +412,7 @@ struct Child
 	Vec2				Pos;				// 0x20
 	Vec2				Size;				// 0x28
 	Vec2				DefSize;			// 0x30
-	XorW*				CryptedName;		// 0x38
+	XorW* CryptedName;		// 0x38
 	char				pad3[0x14];
 	VecCol				Color;				// 0x50
 	char				pad4[0x14];
@@ -421,15 +421,15 @@ struct Child
 	Vec4_8t				PosSizePadd;		// 0x70
 	Vec2				MouseLastPos;		// 0x74
 	ChildStatus			Status;				// 0x7C
-	Element**			Elements;			// 0x80
-	void*				ElementsChunkEnd;	// 0x84
+	Element** Elements;			// 0x80
+	void* ElementsChunkEnd;	// 0x84
 };
 typedef struct
 {
 	char			pad4[0x8];
 	int				IconType;	// 0x80
 	int				IconOffset;	// 0x84
-	char			pad5[0x4];	
+	char			pad5[0x4];
 	Vec2			Size;		// 0x8C
 } TabIcon;
 
@@ -442,10 +442,10 @@ struct CTab
 	char				pad1[0x18];
 	VecCol				Color;			// 0x50
 	char				pad2[0xC];
-	Menu*				Parent;			// 0x60
+	Menu* Parent;			// 0x60
 	char				pad3[0xC];
-	Child**				Childs;			// 0x70
-	void*				ChildsChunkEnd;	// 0x74
+	Child** Childs;			// 0x70
+	void* ChildsChunkEnd;	// 0x74
 	TabIcon				Icon;			// 0x78
 };
 
@@ -473,13 +473,13 @@ struct CMenu
 	MenuStatus	MenuStatus;			// 0x34
 	MouseInfo	Mouse;				// 0x38
 	char		pad2[0x8];
-	Tabs*		Tabs;				// 0x54
-	void*		TabsChunkEnd;		// 0x58
+	Tabs* Tabs;				// 0x54
+	void* TabsChunkEnd;		// 0x58
 };
 
 static struct SkeetSDK
 {
-	static CMenu*		Menu;
+	static CMenu* Menu;
 	static ThisFn		TabSwitch;
 	static ThisFn		SetList;
 	static CallbackFn	Callback;
@@ -568,7 +568,7 @@ static struct SkeetSDK
 	{
 		int diff = *(int*)((int)Menu->Tabs->Config + 0x9C) - *(int*)((int)Menu->Tabs->Config + 0x98);
 
-		return diff>>5;
+		return diff >> 5;
 	};
 
 	static wchar_t* LuaName(int index)
@@ -661,14 +661,14 @@ static struct SkeetSDK
 	}
 } Skeet;
 
-CMenu*		SkeetSDK::Menu		= (CMenu*)0x434799AC;
-ThisFn		SkeetSDK::TabSwitch	= (ThisFn)0x433B75D3;
-ThisFn		SkeetSDK::SetList	= (ThisFn)0x433B0844;
-CallbackFn	SkeetSDK::Callback	= (CallbackFn)0x4334E09F;
-HashFn		SkeetSDK::Hash		= (HashFn)0x4334ADB0;
-SetKeyFn	SkeetSDK::SetKey	= (SetKeyFn)0x4341859F;
-SetCheckFn	SkeetSDK::SetCheck	= (SetCheckFn)0x433AD3C8;
-HideUiFn	SkeetSDK::HideUi	= (HideUiFn)0x433E000B;
-LoadLuaFn	SkeetSDK::LoadLua	= (LoadLuaFn)0x43419B27;
-DecryptFn	SkeetSDK::Decrypt	= (DecryptFn)0x43418122;
+CMenu* SkeetSDK::Menu = (CMenu*)0x434799AC;
+ThisFn		SkeetSDK::TabSwitch = (ThisFn)0x433B75D3;
+ThisFn		SkeetSDK::SetList = (ThisFn)0x433B0844;
+CallbackFn	SkeetSDK::Callback = (CallbackFn)0x4334E09F;
+HashFn		SkeetSDK::Hash = (HashFn)0x4334ADB0;
+SetKeyFn	SkeetSDK::SetKey = (SetKeyFn)0x4341859F;
+SetCheckFn	SkeetSDK::SetCheck = (SetCheckFn)0x433AD3C8;
+HideUiFn	SkeetSDK::HideUi = (HideUiFn)0x433E000B;
+LoadLuaFn	SkeetSDK::LoadLua = (LoadLuaFn)0x43419B27;
+DecryptFn	SkeetSDK::Decrypt = (DecryptFn)0x43418122;
 #endif // SKEET_H
