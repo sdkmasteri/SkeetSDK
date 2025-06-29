@@ -2,5 +2,7 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/skeet-sdk/libs/imgui" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/skeet-sdk/libs/kiero" vcs="Git" />
   </component>
 </project>
