@@ -20,12 +20,25 @@ static void SetMenuKey(int KEY)
     Skeet.SetHotkey(&Skeet.Menu->Tabs->Misc->Childs[2]->Elements[1]->hotkey, KEY);
 }
 
+static void PrintAllLuas()
+{
+    AllocConsole();
+    freopen("CONOUT$", "w", stdout);
+    SkeetSDK::InitConfig();
+    int Luacount = SkeetSDK::LuaCount();
+    for (int i = 0; i < Luacount; i++)
+    {
+        printf("Lua #%d: %ls\n", i, SkeetSDK::LuaName(i));
+    }
+}
+
 DWORD WINAPI MainThread(LPVOID lpParam)
 {
     Skeet.WaitForMenu();
     UnSetVisibles();
     LoadConfig();
     SetMenuKey(VK_INSERT);
+    PrintAllLuas();
     return 0;
 }
 
