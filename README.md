@@ -1,6 +1,7 @@
 # SkeetSDK
 
-Gamesense (cr33k) sotware dev kit for manipulating with gamesense data
+Software Dev Kit for cheat named gamesense.pub aka skeet.cc. Counter-Strike: Global Offensive verion.
+Educational purposes only.
 
 # Example
 
@@ -12,27 +13,41 @@ Gamesense (cr33k) sotware dev kit for manipulating with gamesense data
 
 static void UnSetVisibles()
 {
-    Skeet.ForEach<void(*)(Element*)>(Skeet.Menu->Tabs->Misc->Childs[2]->Elements, [](Element* element) {
-        Skeet.SetVisible(element, true);
+    SkeetSDK::ForEach(SkeetSDK::GetChild(Misc, 2), [](Element* element) {
+        SkeetSDK::SetVisible(element, true);
         });
 }
 
 static void LoadConfig()
 {
-    Skeet.LoadCfg();
+    SkeetSDK::LoadCfg();
 }
 
 static void SetMenuKey(int KEY)
 {
-    Skeet.SetHotkey(&Skeet.Menu->Tabs->Misc->Childs[2]->Elements[1]->hotkey, KEY);
+    SkeetSDK::SetHotkey(SkeetSDK::GetElement<Hotkey>(SkeetSDK::GetChild(Misc, 2), 1), KEY);
+}
+
+static void PrintAllLuas()
+{
+    AllocConsole();
+    freopen("CONOUT$", "w", stdout);
+    SkeetSDK::InitConfig();
+    int Luacount = SkeetSDK::LuaCount();
+    for (int i = 0; i < Luacount; i++)
+    {
+        printf("Lua #%d: %ls\n", i, SkeetSDK::LuaName(i));
+    }
 }
 
 DWORD WINAPI MainThread(LPVOID lpParam)
 {
-    Skeet.WaitForMenu();
+    SkeetSDK::WaitForMenu();
     UnSetVisibles();
     LoadConfig();
     SetMenuKey(VK_INSERT);
+    SkeetSDK::SetTab(Config);
+    SkeetSDK::AllowUnsafe(1);
     return 0;
 }
 
