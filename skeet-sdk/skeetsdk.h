@@ -1107,7 +1107,7 @@ public:
 		return ptr;
 	};
 
-	static FORCECALL Listbox* CreateLisbox(Child* child, wchar_t* name, int* value, wchar_t** arr, size_t arrsize, bool searchbox = true)
+	static FORCECALL Listbox* CreateListbox(Child* child, wchar_t* name, int* value, wchar_t** arr, size_t arrsize, bool searchbox = true)
 	{
 		Listbox* ptr = (Listbox*)Allocator(LISTBOX_SIZE);
 		ListboxCon(ptr, child, name, 158, 300, value, searchbox);
