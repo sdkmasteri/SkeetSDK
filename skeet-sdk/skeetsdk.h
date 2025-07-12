@@ -1,5 +1,6 @@
 #ifndef SKEET_H
 #define SKEET_H
+#include <Windows.h>
 
 // Its better to restrict inline in some heavy function (MSVC goes crazy and inline every function that being member of static class)
 #if defined(__GNUC__) || defined(__GNUG__)
@@ -21,7 +22,7 @@
 #define COLORPICKER_SIZE	0x138
 #define MULTISELECT_SIZE	0x32C
 
-#pragma pack(1)
+#pragma pack(push, 1)
 
 typedef struct XorW;
 typedef struct CTab;
@@ -718,6 +719,8 @@ typedef struct
 	int		LoadedCount;	// 0x6C
 } CLua;
 
+#pragma pack(pop)
+
 static class SkeetSDK final
 {
 	static AllocatorFn	Allocator;
@@ -1228,4 +1231,204 @@ MConFn		SkeetSDK::MultiCon		= (MConFn)0x433230AD;
 LBConFn		SkeetSDK::ListboxCon	= (LBConFn)0x433EDA39;
 CHConFn		SkeetSDK::ChildCon		= (CHConFn)0x4348210C;
 TCConFn		SkeetSDK::TabCon		= (TCConFn)0x4348E41D;
+
+#ifdef SDK_DETOUR_IMP
+
+#define NO_MODULE_ERR 0xCCCCCCCC
+
+#include <psapi.h>
+
+template<typename T>
+class sVec
+{
+	T* buffer;
+	size_t length;
+	size_t size;
+public:
+	sVec(size_t size)
+	{
+		this->buffer = (T*)malloc(sizeof(T) * size);
+		this->size = size;
+		this->length = 0;
+	};
+
+	~sVec()
+	{
+		free(this->buffer);
+	};
+
+	void Push(T elem)
+	{
+		if (this->length >= this->size)
+			Resize(size * 2);
+		this->buffer[length] = elem;
+		this->length++;
+
+	};
+
+	void Resize(size_t size)
+	{
+		T* newbuff = (T*)realloc(this->buffer, size);
+		free(this->buffer);
+		if (this->length >= size)
+			this->length = size - 1;
+		this->size = size;
+		this->buffer = newbuff;
+	};
+
+	size_t Lenght()
+	{
+		return this->length;
+	};
+
+	size_t Size()
+	{
+		return this->size;
+	};
+
+	T* begin()
+	{
+		return this->buffer;
+	};
+
+	T& operator[](size_t i)
+	{
+		return this->buffer[i];
+	};
+};
+
+class SigFinder
+{
+	MODULEINFO info;
+	static FORCECALL sVec<int>* ida_sig_resolver(const char* sig)
+	{
+		size_t siglen = strlen(sig);
+		sVec<int>* vec = new sVec<int>(siglen / 2);
+		for (size_t i = 0; i < siglen; i++)
+		{
+			if (sig[i] == ' ') continue;
+			if (sig[i] == '?')
+			{
+				vec->Push(-1);
+				continue;
+			};
+			if (sig[i] >= 65 && sig[i] <= 90)
+			{
+				vec->Push((sig[i] - 55) << 4);
+			}
+			else
+			{
+				vec->Push((sig[i] - '0') << 4);
+			};
+			if (sig[i + 1] >= 65 && sig[i + 1] <= 90)
+			{
+				(*vec)[vec->Lenght() - 1] |= (sig[i + 1] - 55);
+			}
+			else
+			{
+				(*vec)[vec->Lenght() - 1] |= (sig[i + 1] - '0');
+			};
+			i++;
+		};
+		return vec;
+	};
+public:
+	SigFinder(const char* module)
+	{
+		info = {0};
+		const HMODULE hmod = GetModuleHandleA(module);
+		if (hmod == NULL) throw NO_MODULE_ERR;
+		GetModuleInformation(GetCurrentProcess(), hmod, &info, sizeof(MODULEINFO));
+	};
+
+	SigFinder(LPVOID lpBaseAdress, DWORD SizeOfImage)
+	{
+		info = { 0 };
+		info.lpBaseOfDll = lpBaseAdress;
+		info.SizeOfImage = SizeOfImage;
+	};
+
+	FORCECALL void* find(const char* sig)
+	{
+		sVec<int>* pattern = ida_sig_resolver(sig);
+		int* parr = pattern->begin();
+		for (size_t i = 0; i < info.SizeOfImage; i++)
+		{
+			for (size_t j = 0; j < pattern->Lenght(); j++)
+			{
+				if (parr[j] == -1) continue;
+				if (parr[j] != reinterpret_cast<unsigned char*>(info.lpBaseOfDll)[i + j]) break;
+				if (j + 1 == pattern->Lenght())
+				{
+					delete pattern;
+					return reinterpret_cast<unsigned char*>(info.lpBaseOfDll) + i;
+				};
+			};
+		}
+		return NULL;
+	};
+};
+
+class CHooked
+{
+	bool Status;
+	void* Address;
+	unsigned char* OriginalBytes;
+	size_t BytesSize;
+public:
+	CHooked(void* func, unsigned char* ogbytes, size_t size)
+	{
+		Address = func;
+		
+		OriginalBytes = (unsigned char*)malloc(size);
+		memcpy(OriginalBytes, ogbytes, size);
+
+		BytesSize = size;
+		Status = true;
+	};
+	~CHooked()
+	{
+		Unhook();
+	};
+	int JmpBack()
+	{
+		return ((int)this->Address + this->BytesSize);
+	};
+	void Unhook()
+	{
+		if (!Status) return;
+		memcpy(Address, OriginalBytes, BytesSize);
+		Status = false;
+	};
+};
+
+static class DetourHook
+{
+	static sVec<CHooked*> Hooked;
+public:
+	static CHooked* Hook(void* Dst, void* Src, size_t size = 5)
+	{
+		ptrdiff_t rel32 = (int)Src - (int)Dst - 5;
+		DWORD OldProto{ 0 };
+		unsigned char* ogbytes = (unsigned char*)malloc(size);
+		VirtualProtect(Dst, size, PAGE_EXECUTE_READWRITE, &OldProto);
+		memcpy(ogbytes, Dst, size);
+		*(BYTE*)Dst = 0xE9;
+		*(int*)((BYTE*)Dst + 1) = rel32;
+		if (size - 5 > 0)
+			memset((char*)Dst + 5, 0x90, size - 5);
+		VirtualProtect(Dst, size, OldProto, NULL);
+		CHooked* hook = new CHooked(Dst, ogbytes, size);
+		Hooked.Push(hook);
+		return hook;
+	};
+	static void UnhookAll()
+	{
+		for (size_t i = 0; i < Hooked.Lenght(); i++)
+			Hooked[i]->Unhook();
+	};
+} DHook;
+sVec<CHooked*> DetourHook::Hooked = { 20 };
+
+#endif	// SDK_DETOUR_IMP
 #endif // SKEET_H
