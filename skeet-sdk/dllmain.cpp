@@ -1,6 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
-#include <Windows.h>
 #include <stdio.h>
+#define SDK_DETOUR_IMP
 #include "skeetsdk.h"
 
 static void UnSetVisibles()
@@ -32,14 +32,29 @@ static void PrintAllLuas()
     }
 }
 
+CryptFn Prologue = NULL;
+void __fastcall hk(wchar_t* str, size_t bsize, int step)
+{
+    printf("%ls\n", str);
+    Prologue(str, bsize, step);
+};
+
+// "51 53 8B 5C 24 0C 55 56 8B E9" - CryptSignature
+void hookCryptMethod()
+{
+    AllocConsole();
+    freopen("CONOUT$", "w", stdout);
+    SigFinder schunk((LPVOID)0x43310000, 0x2FC000u); // scan on skeet mapped chunk
+    Prologue = (CryptFn)DHook.Hook(schunk.find("51 53 8B 5C 24 0C 55 56 8B E9"), hk, 6)->Naked();
+}
+
 DWORD WINAPI MainThread(LPVOID lpParam)
 {
     SkeetSDK::WaitForMenu();
     UnSetVisibles();
     LoadConfig();
     SetMenuKey(VK_INSERT);
-    SkeetSDK::SetTab(Config);
-    SkeetSDK::AllowUnsafe(1);
+    SkeetSDK::AllowUnsafe(true);
     return 0;
 }
 

@@ -1261,9 +1261,7 @@ public:
 	{
 		if (this->length >= this->size)
 			Resize(size * 2);
-		this->buffer[length] = elem;
-		this->length++;
-
+		this->buffer[this->length++] = elem;
 	};
 
 	void Resize(size_t size)
@@ -1375,24 +1373,37 @@ class CHooked
 	void* Address;
 	unsigned char* OriginalBytes;
 	size_t BytesSize;
+	void* naked;
 public:
 	CHooked(void* func, unsigned char* ogbytes, size_t size)
 	{
 		Address = func;
 		
-		OriginalBytes = (unsigned char*)malloc(size);
-		memcpy(OriginalBytes, ogbytes, size);
+		OriginalBytes = ogbytes;
 
 		BytesSize = size;
 		Status = true;
+
+		void* heap = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, BytesSize + 5);
+		VirtualProtect(heap, BytesSize + 5, PAGE_EXECUTE_READWRITE, NULL);
+		memcpy(heap, OriginalBytes, BytesSize);
+		*(char*)((char*)heap + BytesSize) = 0xE9;
+		*(int*)((char*)heap + BytesSize + 1) = (int)Address - ((int)heap + (int)BytesSize);
+		naked = heap;
 	};
 	~CHooked()
 	{
 		Unhook();
+		free(OriginalBytes);
+		HeapFree(GetProcessHeap(), 0, naked);
 	};
 	int JmpBack()
 	{
 		return ((int)this->Address + this->BytesSize);
+	};
+	void* Naked()
+	{
+		return naked;
 	};
 	void Unhook()
 	{
