@@ -9,6 +9,15 @@
 #define FORCECALL __declspec(noinline)
 #endif
 
+// Only use if you know what you are doing, incorrect usage of raw functions can cause undefined behavior
+#ifdef _SDK_PUBLIC_UNSAFE_MEMBERS
+#define MEMBERS_PRIVATE public:
+#define MEMBERS_PUBLIC
+#else
+#define MEMBERS_PRIVATE private:
+#define MEMBERS_PUBLIC	public:
+#endif
+
 #define CHILD_SIZE			0xC8
 #define LABEL_SIZE			0x60
 #define BUTTON_SIZE			0x64
@@ -212,13 +221,17 @@ typedef struct
 	Vec2		LastMenuPos;
 } MouseInfo;
 
-typedef struct
+typedef struct VecCol
 {
 	unsigned char r;
 	unsigned char g;
 	unsigned char b;
 	unsigned char a;
-} VecCol;
+	int pack()
+	{
+		return (this->r | this->g << 8 | this->b << 16 | this->a << 24);
+	};
+};
 
 typedef struct
 {
@@ -723,6 +736,7 @@ typedef struct
 
 static class SkeetSDK final
 {
+MEMBERS_PRIVATE
 	static AllocatorFn	Allocator;
 	static ThisIntFn	TabSwitch;
 	static ThisIntFn	SetList;
@@ -758,7 +772,7 @@ static class SkeetSDK final
 	static LBConFn		ListboxCon;
 	static CHConFn		ChildCon;
 	static TCConFn		TabCon;
-public:
+MEMBERS_PUBLIC
 	static CMenu*		Menu;
 
 	static void WaitForMenu()
@@ -1354,8 +1368,7 @@ public:
 		{
 			for (size_t j = 0; j < pattern->Lenght(); j++)
 			{
-				if (parr[j] == -1) continue;
-				if (parr[j] != reinterpret_cast<unsigned char*>(info.lpBaseOfDll)[i + j]) break;
+				if (parr[j] != -1 && parr[j] != reinterpret_cast<unsigned char*>(info.lpBaseOfDll)[i + j]) break;
 				if (j + 1 == pattern->Lenght())
 				{
 					delete pattern;
@@ -1396,10 +1409,6 @@ public:
 		Unhook();
 		free(OriginalBytes);
 		HeapFree(GetProcessHeap(), 0, naked);
-	};
-	int JmpBack()
-	{
-		return ((int)this->Address + this->BytesSize);
 	};
 	void* Naked()
 	{
