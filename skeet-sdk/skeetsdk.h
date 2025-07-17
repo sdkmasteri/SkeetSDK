@@ -566,7 +566,7 @@ struct Listbox
 	int					ItemsCount;			// 0x74
 	char				pad6[0x4];
 	int					SearchPresent;		// 0x7C
-	int					DisplayedCount;		// 0x80
+	int					DisplayedCount;		// 0x80;
 	ListboxInfo			Info;				// 0x84
 	wchar_t*			SearchChunk;		// 0xA0
 	void*				SearchChunkEnd;		// 0xA4
@@ -1115,7 +1115,7 @@ MEMBERS_PUBLIC
 		return ptr;
 	};
 
-	// ecx = first parameter that function recive, while second one is alway this pointer
+	// ecx = first parameter that function recive, while second one is always this pointer
 	static FORCECALL Button* CreateButton(Child* child, wchar_t* name, F2PFn function, void* ecx = Menu)
 	{
 		Button* ptr = (Button*)AddButton(child, NULL, name, ecx, function);
@@ -1219,8 +1219,7 @@ MEMBERS_PUBLIC
 		list->Info.ItemsChunkEnd++;
 		list->SSpecChunk->Indexies[list->ItemsCount] = list->ItemsCount + 1;
 		list->SSpecChunkEnd++;
-		list->ItemsCount++;
-		list->Info.SelectedItem = list->ItemsCount-1;
+		list->Info.SelectedItem = list->ItemsCount++;
 	};
 
 	static FORCECALL void RemoveListboxVar(Listbox* list, size_t index)
@@ -1428,10 +1427,9 @@ class SigFinder
 	{
 		size_t siglen = strlen(sig);
 		sVec<int>* vec = new sVec<int>(siglen / 2);
-		for (size_t i = 0; i < siglen; i++)
+		for (size_t i = 0; i < siglen; i+=3)
 		{
-			if (sig[i] == ' ') continue;
-			if (sig[i] == '?')
+			if (sig[i] == '?' && sig[i+1] == '?')
 			{
 				vec->Push(-1);
 				continue;
@@ -1452,7 +1450,6 @@ class SigFinder
 			{
 				(*vec)[vec->Lenght() - 1] |= (sig[i + 1] - '0');
 			};
-			i++;
 		};
 		return vec;
 	};
@@ -1488,6 +1485,7 @@ public:
 				};
 			};
 		}
+		delete pattern;
 		return NULL;
 	};
 };
