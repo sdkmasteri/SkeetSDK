@@ -80,6 +80,7 @@ typedef void* (__thiscall* CBConFn)(void*, void*, wchar_t*, int*, bool); // Comb
 typedef void* (__thiscall* MConFn)(void*, void*, wchar_t*, int*, int, bool); // Multiselect constructor
 typedef void* (__thiscall* LBConFn)(void*, void*, wchar_t*, int, int, int*, bool); // Listbox constructor
 typedef void* (__thiscall* CHConFn)(void*, void*, wchar_t*, int, int, bool); // Child constructor
+typedef void(__cdecl* PrintFn)(void*, int*, char*, ...);
 
 enum Tab
 {
@@ -221,12 +222,14 @@ typedef struct
 	Vec2		LastMenuPos;
 } MouseInfo;
 
-typedef struct VecCol
+class VecCol
 {
+public:
 	unsigned char r;
 	unsigned char g;
 	unsigned char b;
 	unsigned char a;
+	VecCol(unsigned char r, unsigned char g, unsigned char b, unsigned char a) : r(r), g(g), b(b), a(a) {};
 	int pack()
 	{
 		return (this->r | this->g << 8 | this->b << 16 | this->a << 24);
@@ -252,8 +255,8 @@ struct XorW
 // Not all elements have correct pointer to this struct and ChunkEnd, so check ts for NULL
 typedef struct
 {
-	CMenu*	Menu;
-	F2PFn	function;	// function(Menu, elementptr)
+	void*	ecx;
+	F2PFn	function;	// function(ecx, elementptr)
 } Call;
 
 template <typename T>
@@ -287,20 +290,23 @@ struct Slider
 	Vec2				Size;			// 0x28
 	char				pad1[0x8];
 	XorW*				CryptedName;	// 0x38
-	char				pad2[0x14];
+	char				pad2[0x4];
+	Call*				CallChunk;		// 0x40
+	Call*				CallChunkEnd;	// 0x44
+	char				pad3[0x8];
 	VecCol				Color;			// 0x50
 	int					LeftPaddign;	// 0x54
-	char				pad3[0x4];
+	char				pad4[0x4];
 	int*				Value;			// 0x5C
 	Vec2				DefSize;		// 0x60
 	bool				Active;			// 0x68
 	bool				Tooltip;		// 0x69
-	char				pad4[0x26];
+	char				pad5[0x26];
 	int					Max;			// 0x90
 	int					Min;			// 0x94
 	float				Step;			// 0x98
 	int					MaxLen;			// 0x9C
-	char				pad5[0x84];
+	char				pad6[0x84];
 };
 
 // Checkbox is 0x78 bytes long
@@ -311,14 +317,17 @@ struct Checkbox
 	Vec2				ActivateSize;	// 0x28
 	char				pad1[0x8];
 	XorW*				CryptedName;	// 0x38
-	char				pad2[0x14];
+	char				pad2[0x4];
+	Call*				CallChunk;		// 0x40
+	Call*				CallChunkEnd;	// 0x44
+	char				pad3[0x8];
 	VecCol				Color;			// 0x50
 	int					LeftPaddign;	// 0x54
-	char				pad3[0x4];
+	char				pad4[0x4];
 	int*				Value;			// 0x5C
 	Vec2				Size;			// 0x60
 	int					TextPadding;	// 0x68
-	char				pad4[0xC];
+	char				pad5[0xC];
 };
 
 // Multiselect is 0x32C bytes long
@@ -329,26 +338,29 @@ struct Multiselect
 	Vec2				Size;				// 0x28
 	Vec2				OuterPadding;		// 0x30
 	XorW*				CryptedName;		// 0x38
-	char				pad1[0x14];
+	char				pad1[0x4];
+	Call*				CallChunk;			// 0x40
+	Call*				CallChunkEnd;		// 0x44
+	char				pad2[0x8];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
-	char				pad2[0x4];
+	char				pad3[0x4];
 	int*				Value;				// 0x5C
 	int					Height;				// 0x60
-	char				pad3[0x4];
+	char				pad4[0x4];
 	bool				Popup;				// 0x68
 	bool				Clicked;			// 0x69
 	bool				NotNull;			// 0x6A
-	char				pad4;
+	char				pad5;
 	int					HoveredItem;		// 0x6C
 	char*				StringValue;		// 0x70
 	char*				StringValueEnd;		// 0x74
 	void*				StringValueChunkEnd;// 0x78
-	char				pad5[0x4];
+	char				pad6[0x4];
 	BoxVars<char>*		VarsChunk;			// 0x80
 	void*				VarsChunkEnd;		// 0x84
-	char				pad6[0x8];
-	BoxVars<char>		Vars[];		// 0x90
+	char				pad7[0x8];
+	BoxVars<char>		Vars[];				// 0x90
 };
 
 typedef struct
@@ -398,15 +410,18 @@ struct Hotkey
 	Vec2				ActivateSize;			// 0x28
 	Vec2				DefaultActivateSize;	// 0x30
 	XorW*				CryptedName;			// 0x38
-	char				pad1[0x14];
+	char				pad1[0x4];
+	Call*				CallChunk;				// 0x40
+	Call*				CallChunkEnd;			// 0x44
+	char				pad2[0x8];
 	VecCol				Color;					// 0x50
 	int					LeftPaddign;			// 0x54
-	char				pad2[0x4];
+	char				pad3[0x4];
 	HotkeyInfo*			Info;					// 0x5C
 	bool				SetingKey;				// 0x60
-	char				pad3;
+	char				pad4;
 	wchar_t				KeyText[0x4];			// 0x62
-	char				pad4[0x2];
+	char				pad5[0x2];
 	HotkeyPopup*		Popup;					// 0x6C
 };
 
@@ -419,8 +434,8 @@ struct Button
 	Vec2				DefSize;			// 0x30
 	XorW*				CryptedName;		// 0x38
 	char				pad1[0x4];
-	Call*				Call;				// 0x40
-	void*				CallChunkEnd;		// 0x44
+	Call*				CallChunk;			// 0x40
+	Call*				CallChunkEnd;		// 0x44
 	char				pad2[0x8];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
@@ -453,14 +468,17 @@ struct ColorPicker
 	Vec2				Pos;			// 0x20
 	Vec2				Size;			// 0x28
 	Vec2				DefSize;		// 0x30
-	char				pad1[0x18];
+	char				pad1[0x8];
+	Call*				CallChunk;		// 0x40
+	Call*				CallChunkEnd;	// 0x44
+	char				pad2[0x8];
 	VecCol				Color;			// 0x50
 	int					LeftPaddign;	// 0x54
-	char				pad2[0x4];
-	VecCol*				Value;			// 0x5C
 	char				pad3[0x4];
+	VecCol*				Value;			// 0x5C
+	char				pad4[0x4];
 	ColorPopup			Popup;			// 0x64
-	char				pad4[0x88];
+	char				pad5[0x88];
 	PickerStatus		Status;			// 0x128
 	HSV					HSV;			// 0x12C
 };
@@ -474,8 +492,8 @@ struct Combobox
 	Vec2				OuterPadding;		// 0x30
 	XorW*				CryptedName;		// 0x38
 	char				pad1[0x4];
-	Call*				Call;				// 0x40
-	void*				CallChunkEnd;		// 0x44
+	Call*				CallChunk;			// 0x40
+	Call*				CallChunkEnd;		// 0x44
 	char				pad2[0x8];
 	VecCol				Color;				// 0x50
 	Vec2				BoxPos;				// 0x54
@@ -503,8 +521,8 @@ struct Label
 	Vec2				DefOuterPadding;	// 0x30
 	XorW*				CryptedName;		// 0x38
 	char				pad1[0x4];
-	Call*				Call;				// 0x40
-	void*				CallChunkEnd;		// 0x44
+	Call*				CallChunk;			// 0x40
+	Call*				CallChunkEnd;		// 0x44
 	char				pad2[0x8];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
@@ -513,11 +531,11 @@ struct Label
 
 typedef struct
 {
-	char		pad1[0x8];
+	char		pad1[0x4];
 	int			SelectedItem;	// 0x88
 	char		pad2[0x4];
 	wchar_set*	ItemsChunk;		// 0x90
-	void*		ItemsChunkEnd;	// 0x94
+	wchar_set*	ItemsChunkEnd;	// 0x94
 	char		pad3[0x8];
 } ListboxInfo;
 
@@ -536,8 +554,8 @@ struct Listbox
 	char				pad1[0x8];
 	XorW*				CryptedName;		// 0x38
 	char				pad2[0x4];
-	Call*				Call;				// 0x40
-	void*				CallChunkEnd;		// 0x44
+	Call*				CallChunk;			// 0x40
+	Call*				CallChunkEnd;		// 0x44
 	char				pad3[0x8];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
@@ -548,13 +566,14 @@ struct Listbox
 	int					ItemsCount;			// 0x74
 	char				pad6[0x4];
 	int					SearchPresent;		// 0x7C
-	ListboxInfo			Info;				// 0x80
+	int					DisplayedCount;		// 0x80
+	ListboxInfo			Info;				// 0x84
 	wchar_t*			SearchChunk;		// 0xA0
 	void*				SearchChunkEnd;		// 0xA4
 	void*				SearchCapacityEnd;	// 0xA8
 	char				pad7[0x4];
 	SSpec*				SSpecChunk;			// 0xB0
-	void*				SSpecChunkEnd;		// 0xB4
+	short*				SSpecChunkEnd;		// 0xB4
 	void*				SSpecCapacityEnd;	// 0xB8
 	char				pad8[0x4];
 };
@@ -568,8 +587,8 @@ struct Textbox
 	char				pad1[0x8];
 	XorW*				CryptedName;		// 0x38
 	char				pad2[0x4];
-	Call*				Call;				// 0x40
-	void*				CallChunkEnd;		// 0x44
+	Call*				CallChunk;			// 0x40
+	Call*				CallChunkEnd;		// 0x44
 	char				pad3[0x8];
 	VecCol				Color;				// 0x50
 	int					LeftPaddign;		// 0x54
@@ -582,8 +601,11 @@ typedef struct
 {
 	char	pad1[0x38];
 	XorW*	crypted;		// 0x38
-	char	pad2[0x20];
-	void*	value;		// 0x5C
+	char	pad2[0x4];
+	Call*	CallChunk;		// 0x40
+	Call*	CallChunkEnd;	// 0x44
+	char	pad3[0x14];
+	void*	value;			// 0x5C
 } Inspector;
 
 typedef struct
@@ -616,8 +638,8 @@ struct Child
 	Vec2				DefSize;			// 0x30
 	XorW*				CryptedName;		// 0x38
 	Unkn*				Unknown;			// 0x3C
-	Call*				Call;				// 0x40
-	void*				CallChunkEnd;		// 0x44
+	Call*				CallChunk;			// 0x40
+	Call*				CallChunkEnd;		// 0x44
 	char				pad1[0x8];
 	VecCol				Color;				// 0x50
 	char				pad2[0x14];
@@ -772,6 +794,7 @@ MEMBERS_PRIVATE
 	static LBConFn		ListboxCon;
 	static CHConFn		ChildCon;
 	static TCConFn		TabCon;
+	static PrintFn		Print;
 MEMBERS_PUBLIC
 	static CMenu*		Menu;
 
@@ -788,7 +811,7 @@ MEMBERS_PUBLIC
 	static void ResetLayout()
 	{
 		Button* b = (Button*)GetByName(Menu->TabsChunk->Misc->ChildsChunk[2], L"Reset menu layout");
-		b->Call->function(Menu, b);
+		b->CallChunk->function(Menu, b);
 	};
 
 	static void InitConfig()
@@ -821,6 +844,11 @@ MEMBERS_PUBLIC
 		HideUi(element, element, value);
 	};
 
+	static VecCol GetMenuCol()
+	{
+		return GetChild(Misc, 2)->ElementsChunk[3]->colorpicker.Value[0];
+	};
+
 	static void SetInput(Element* elemen, bool val)
 	{
 		Header<Child>* head = &elemen->header;
@@ -834,6 +862,25 @@ MEMBERS_PUBLIC
 		element->inspector.value = ptr;
 		return oldptr;
 	};
+
+	static size_t GetCallbacksCount(Element* elem)
+	{
+		ptrdiff_t diff = (int)elem->inspector.CallChunkEnd - (int)elem->inspector.CallChunk;
+		return diff / sizeof(Call);
+	};
+
+	static void SetCallback(Element* elem, F2PFn func, void* ecx = NULL)
+	{
+		size_t index = GetCallbacksCount(elem);
+		if (!index)
+		{
+			elem->inspector.CallChunk = (Call*)Allocator(sizeof(Call) * 10);
+			elem->inspector.CallChunkEnd = elem->inspector.CallChunk;
+		}
+		elem->inspector.CallChunk[index].ecx = ecx;
+		elem->inspector.CallChunk[index].function = func;
+		elem->inspector.CallChunkEnd++;
+	}
 
 	static void DeleteElement(Element* element)
 	{
@@ -1026,8 +1073,10 @@ MEMBERS_PUBLIC
 		return ptr;
 	};
 
-	static FORCECALL Textbox* CreateTextbox(Child* child)
+	static FORCECALL Textbox* CreateTextbox(Child* child, bool sameline = true, wchar_t* name = NULL)
 	{
+		if (!sameline && name)
+			CreateLabel(child, name);
 		Textbox* ptr = (Textbox*)Allocator(TEXTBOX_SIZE);
 		TextboxCon(ptr, child);
 		InsertElement(child, ptr);
@@ -1143,13 +1192,48 @@ MEMBERS_PUBLIC
 		}
 		spec->FindedIndex = 0;
 		ptr->Info.ItemsChunk = set;
-		ptr->Info.ItemsChunkEnd = (void*)((int)set + sizeof(wchar_set) * arrsize);
+		ptr->Info.ItemsChunkEnd = set + arrsize;
 		ptr->ItemsCount = arrsize;
 		ptr->SSpecChunk = spec;
-		ptr->SSpecChunkEnd = (void*)((int)spec + sizeof(short) * (arrsize + 1));
+		ptr->SSpecChunkEnd = (short*)((int)spec + sizeof(short) * (arrsize + 1));
 		ptr->SSpecCapacityEnd = ptr->SSpecChunkEnd;
 		InsertElement(child, ptr);
 		return ptr;
+	};
+
+	static FORCECALL void AddListboxVar(Listbox* list, wchar_t* elem, size_t bsize = 0)
+	{
+		if (!list->ItemsCount)
+		{
+			list->Info.ItemsChunk = (wchar_set*)Allocator(sizeof(wchar_set) * 255);
+			list->Info.ItemsChunkEnd = list->Info.ItemsChunk;
+			list->SSpecChunk = (SSpec*)Allocator(sizeof(short) * 256);
+			list->SSpecChunkEnd = (short*)((int)list->SSpecChunk + sizeof(short));
+		};
+		if (!bsize) bsize = (wcslen(elem) + 1) * sizeof(wchar_t);
+		list->Info.ItemsChunk[list->ItemsCount].Index = list->ItemsCount;
+		list->Info.ItemsChunk[list->ItemsCount].NameChunk = (wchar_t*)Allocator(bsize);
+		memcpy(list->Info.ItemsChunk[list->ItemsCount].NameChunk, elem, bsize);
+		list->Info.ItemsChunk[list->ItemsCount].NameChunkEnd = (void*)((int)list->Info.ItemsChunk[list->ItemsCount].NameChunk + bsize);
+		list->Info.ItemsChunk[list->ItemsCount].CapacityEnd = list->Info.ItemsChunk[list->ItemsCount].NameChunkEnd;
+		list->Info.ItemsChunkEnd++;
+		list->SSpecChunk->Indexies[list->ItemsCount] = list->ItemsCount + 1;
+		list->SSpecChunkEnd++;
+		list->ItemsCount++;
+		list->Info.SelectedItem = list->ItemsCount-1;
+	};
+
+	static FORCECALL void RemoveListboxVar(Listbox* list, size_t index)
+	{
+		if (!list->ItemsCount) return;
+		list->SSpecChunkEnd--;
+		for (size_t i = index; i < list->ItemsCount; i++)
+		{
+			list->Info.ItemsChunk[i].Index--;
+		};
+		memcpy(list->Info.ItemsChunk + index, list->Info.ItemsChunk + index + 1, (list->ItemsCount-- - index) * sizeof(wchar_set));
+		list->Info.ItemsChunkEnd--;
+		list->Info.SelectedItem = list->ItemsCount - 1;
 	};
 
 	static FORCECALL void InsertChild(CTab* tab, void* child)
@@ -1173,6 +1257,23 @@ MEMBERS_PUBLIC
 		InsertTab(Menu, ptr);
 		return ptr;
 	};
+
+	static void CPrintf(VecCol Color, const char* fmt, ...)
+	{
+		void**** ptr = (void****)0x4346A87C;
+		if (Print == NULL)
+		{
+			Print = (PrintFn)ptr[0][0][0x19];
+		};
+		int col = Color.pack();
+		va_list vargs;
+		va_start(vargs, fmt);
+		char msg[989];
+		vsprintf(msg, fmt, vargs);
+		va_end(vargs);
+		Print(*ptr, &col, msg);
+	};
+
 
 	template <typename T>
 	static T* GetElement(Child* child, int index)
@@ -1245,6 +1346,7 @@ MConFn		SkeetSDK::MultiCon		= (MConFn)0x433230AD;
 LBConFn		SkeetSDK::ListboxCon	= (LBConFn)0x433EDA39;
 CHConFn		SkeetSDK::ChildCon		= (CHConFn)0x4348210C;
 TCConFn		SkeetSDK::TabCon		= (TCConFn)0x4348E41D;
+PrintFn		SkeetSDK::Print			= (PrintFn)NULL;
 
 #ifdef SDK_DETOUR_IMP
 
@@ -1259,10 +1361,9 @@ class sVec
 	size_t length;
 	size_t size;
 public:
-	sVec(size_t size)
+	sVec(size_t size) : size(size)
 	{
 		this->buffer = (T*)malloc(sizeof(T) * size);
-		this->size = size;
 		this->length = 0;
 	};
 
@@ -1276,6 +1377,17 @@ public:
 		if (this->length >= this->size)
 			Resize(size * 2);
 		this->buffer[this->length++] = elem;
+	};
+
+	void Remove(size_t index)
+	{
+		memcpy(buffer + index, buffer + index + 1, (this->length-- - index) * sizeof(T));
+	};
+
+	void Removef(size_t index)
+	{
+		free(buffer[index]);
+		memcpy(buffer + index, buffer + index + 1, (this->length-- - index) * sizeof(T));
 	};
 
 	void Resize(size_t size)
