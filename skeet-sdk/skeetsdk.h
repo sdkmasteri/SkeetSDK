@@ -1,6 +1,7 @@
 #ifndef SKEET_H
 #define SKEET_H
 #include <Windows.h>
+#include <psapi.h>
 
 // Its better to restrict inline in some heavy function (MSVC goes crazy and inline every function that being member of static class)
 #if defined(__GNUC__) || defined(__GNUG__)
@@ -174,6 +175,7 @@ typedef struct Vec2
 {
 	int x;
 	int y;
+	Vec2() : x(0), y(0) {};
 	Vec2(int x, int y) : x(x), y(y) {};
 	Vec2 operator+(Vec2 vec)
 	{
@@ -229,6 +231,13 @@ public:
 	unsigned char g;
 	unsigned char b;
 	unsigned char a;
+	VecCol(unsigned int hex)
+	{
+		this->r = (unsigned char)hex;
+		this->g = hex >> 8;
+		this->b = hex >> 16;
+		this->a = hex >> 24;
+	}
 	VecCol(unsigned char r, unsigned char g, unsigned char b, unsigned char a) : r(r), g(g), b(b), a(a) {};
 	int pack()
 	{
@@ -346,7 +355,7 @@ struct Multiselect
 	int					LeftPaddign;		// 0x54
 	char				pad3[0x4];
 	int*				Value;				// 0x5C
-	int					Height;				// 0x60
+	int					heigth;				// 0x60
 	char				pad4[0x4];
 	bool				Popup;				// 0x68
 	bool				Clicked;			// 0x69
@@ -498,8 +507,8 @@ struct Combobox
 	VecCol				Color;				// 0x50
 	Vec2				BoxPos;				// 0x54
 	int*				Value;				// 0x5C
-	int					DefHeight;			// 0x60
-	int					Height;				// 0x64
+	int					Defheigth;			// 0x60
+	int					heigth;				// 0x64
 	int					DefInteractOffset;	// 0x68
 	int					InteractOffset;		// 0x6C
 	bool				Open;				// 0x70
@@ -566,7 +575,7 @@ struct Listbox
 	int					ItemsCount;			// 0x74
 	char				pad6[0x4];
 	int					SearchPresent;		// 0x7C
-	int					DisplayedCount;		// 0x80;
+	int					DisplayedCount;		// 0x80
 	ListboxInfo			Info;				// 0x84
 	wchar_t*			SearchChunk;		// 0xA0
 	void*				SearchChunkEnd;		// 0xA4
@@ -599,7 +608,8 @@ struct Textbox
 
 typedef struct
 {
-	char	pad1[0x38];
+	void**	Vtable;			// 0x00
+	char	pad1[0x34];
 	XorW*	crypted;		// 0x38
 	char	pad2[0x4];
 	Call*	CallChunk;		// 0x40
@@ -758,8 +768,8 @@ typedef struct
 
 static class SkeetSDK final
 {
-MEMBERS_PRIVATE
-	static AllocatorFn	Allocator;
+	MEMBERS_PRIVATE
+		static AllocatorFn	Allocator;
 	static ThisIntFn	TabSwitch;
 	static ThisIntFn	SetList;
 	static ThisFn		TabLyaout;
@@ -776,7 +786,7 @@ MEMBERS_PRIVATE
 	static F2PFn		DeleteUi;
 	static ThisFn		InitTab;
 	static CFn			InitState;
-	static CLua**		LuaInfo;
+	static CLua** LuaInfo;
 	static T2PFn		InsertTab;
 	static T2PFn		InsertChildr;
 	static InsertFn		InsertElem;
@@ -795,8 +805,8 @@ MEMBERS_PRIVATE
 	static CHConFn		ChildCon;
 	static TCConFn		TabCon;
 	static PrintFn		Print;
-MEMBERS_PUBLIC
-	static CMenu*		Menu;
+	MEMBERS_PUBLIC
+		static CMenu* Menu;
 
 	static void WaitForMenu()
 	{
@@ -1006,11 +1016,11 @@ MEMBERS_PUBLIC
 	};
 
 
-	static XorW* RenameElement(Element* element, wchar_t* name)
+	static void RenameElement(Element* element, wchar_t* name, XorW* oldname)
 	{
-		XorW* old = element->inspector.crypted;
+		if (oldname)
+			oldname = element->inspector.crypted;
 		element->inspector.crypted = CryptName(name);
-		return old;
 	};
 
 	static wchar_t* GetName(Element* element)
@@ -1059,7 +1069,7 @@ MEMBERS_PUBLIC
 	{
 		return InitState();
 	}
-	
+
 	static FORCECALL void InsertElement(Child* child, void* element)
 	{
 		InsertElem(child, 0, element);
@@ -1082,7 +1092,7 @@ MEMBERS_PUBLIC
 		InsertElement(child, ptr);
 		return ptr;
 	};
-	
+
 	static FORCECALL Checkbox* CreateCheckbox(Child* child, wchar_t* name, int* value)
 	{
 		Checkbox* ptr = (Checkbox*)Allocator(CHECKBOX_SIZE);
@@ -1177,18 +1187,18 @@ MEMBERS_PUBLIC
 	{
 		Listbox* ptr = (Listbox*)Allocator(LISTBOX_SIZE);
 		ListboxCon(ptr, child, name, 158, 300, value, searchbox);
-		
+
 		wchar_set* set = (wchar_set*)Allocator(sizeof(wchar_set) * arrsize);
 		SSpec* spec = (SSpec*)Allocator(sizeof(short) * (arrsize + 1));
 		for (size_t i = 0; i < arrsize; i++)
 		{
-		    size_t bsize = (wcslen(arr[i]) + 1) * sizeof(wchar_t);
-		    set[i].Index = i;
-		    set[i].NameChunk = (wchar_t*)Allocator(bsize);
-		    memcpy(set[i].NameChunk, arr[i], bsize);
-		    set[i].NameChunkEnd = (void*)((int)set[i].NameChunk + bsize);
-		    set[i].CapacityEnd = set[i].NameChunkEnd;
-		    spec->Indexies[i] = i+1;
+			size_t bsize = (wcslen(arr[i]) + 1) * sizeof(wchar_t);
+			set[i].Index = i;
+			set[i].NameChunk = (wchar_t*)Allocator(bsize);
+			memcpy(set[i].NameChunk, arr[i], bsize);
+			set[i].NameChunkEnd = (void*)((int)set[i].NameChunk + bsize);
+			set[i].CapacityEnd = set[i].NameChunkEnd;
+			spec->Indexies[i] = i + 1;
 		}
 		spec->FindedIndex = 0;
 		ptr->Info.ItemsChunk = set;
@@ -1285,12 +1295,17 @@ MEMBERS_PUBLIC
 	{
 		return reinterpret_cast<T>(tab->Chunk);
 	};
-	
+
 	template <typename T>
-	static T GetVFunc(void* ptr, int index)
+	static T GetVFunc(Element* ptr, size_t index)
 	{
-		void** vtable = (void**)(*(int*)ptr);
-		return reinterpret_cast<T>(vtable[index]);
+		return reinterpret_cast<T>(ptr->inspector.Vtable[index]);
+	};
+
+	template <typename T>
+	static T VtableBind(void** table, size_t index)
+	{
+		return reinterpret_cast<T>(table[index]);
 	};
 
 	template <UiType T = UiNone>
@@ -1347,12 +1362,6 @@ CHConFn		SkeetSDK::ChildCon		= (CHConFn)0x4348210C;
 TCConFn		SkeetSDK::TabCon		= (TCConFn)0x4348E41D;
 PrintFn		SkeetSDK::Print			= (PrintFn)NULL;
 
-#ifdef SDK_DETOUR_IMP
-
-#define NO_MODULE_ERR 0xCCCCCCCC
-
-#include <psapi.h>
-
 template<typename T>
 class sVec
 {
@@ -1399,7 +1408,7 @@ public:
 		this->buffer = newbuff;
 	};
 
-	size_t Lenght()
+	size_t Length()
 	{
 		return this->length;
 	};
@@ -1423,71 +1432,13 @@ public:
 class SigFinder
 {
 	MODULEINFO info;
-	static FORCECALL sVec<int>* ida_sig_resolver(const char* sig)
-	{
-		size_t siglen = strlen(sig);
-		sVec<int>* vec = new sVec<int>(siglen / 2);
-		for (size_t i = 0; i < siglen; i+=3)
-		{
-			if (sig[i] == '?' && sig[i+1] == '?')
-			{
-				vec->Push(-1);
-				continue;
-			};
-			if (sig[i] >= 65 && sig[i] <= 90)
-			{
-				vec->Push((sig[i] - 55) << 4);
-			}
-			else
-			{
-				vec->Push((sig[i] - '0') << 4);
-			};
-			if (sig[i + 1] >= 65 && sig[i + 1] <= 90)
-			{
-				(*vec)[vec->Lenght() - 1] |= (sig[i + 1] - 55);
-			}
-			else
-			{
-				(*vec)[vec->Lenght() - 1] |= (sig[i + 1] - '0');
-			};
-		};
-		return vec;
-	};
+	static FORCECALL sVec<int>* ida_sig_resolver(const char* sig);
 public:
-	SigFinder(const char* module)
-	{
-		info = {0};
-		const HMODULE hmod = GetModuleHandleA(module);
-		if (hmod == NULL) throw NO_MODULE_ERR;
-		GetModuleInformation(GetCurrentProcess(), hmod, &info, sizeof(MODULEINFO));
-	};
+	SigFinder(const char* module);
 
-	SigFinder(LPVOID lpBaseAdress, DWORD SizeOfImage)
-	{
-		info = { 0 };
-		info.lpBaseOfDll = lpBaseAdress;
-		info.SizeOfImage = SizeOfImage;
-	};
+	SigFinder(LPVOID lpBaseAdress, DWORD SizeOfImage);
 
-	FORCECALL void* find(const char* sig)
-	{
-		sVec<int>* pattern = ida_sig_resolver(sig);
-		int* parr = pattern->begin();
-		for (size_t i = 0; i < info.SizeOfImage; i++)
-		{
-			for (size_t j = 0; j < pattern->Lenght(); j++)
-			{
-				if (parr[j] != -1 && parr[j] != reinterpret_cast<unsigned char*>(info.lpBaseOfDll)[i + j]) break;
-				if (j + 1 == pattern->Lenght())
-				{
-					delete pattern;
-					return reinterpret_cast<unsigned char*>(info.lpBaseOfDll) + i;
-				};
-			};
-		}
-		delete pattern;
-		return NULL;
-	};
+	FORCECALL void* find(const char* sig);
 };
 
 class CHooked
@@ -1498,67 +1449,507 @@ class CHooked
 	size_t BytesSize;
 	void* naked;
 public:
-	CHooked(void* func, unsigned char* ogbytes, size_t size)
-	{
-		Address = func;
-		
-		OriginalBytes = ogbytes;
+	CHooked(void* func, unsigned char* ogbytes, size_t size);
 
-		BytesSize = size;
-		Status = true;
+	~CHooked();
 
-		void* heap = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, BytesSize + 5);
-		VirtualProtect(heap, BytesSize + 5, PAGE_EXECUTE_READWRITE, NULL);
-		memcpy(heap, OriginalBytes, BytesSize);
-		*(char*)((char*)heap + BytesSize) = 0xE9;
-		*(int*)((char*)heap + BytesSize + 1) = (int)Address - ((int)heap + (int)BytesSize);
-		naked = heap;
-	};
-	~CHooked()
-	{
-		Unhook();
-		free(OriginalBytes);
-		HeapFree(GetProcessHeap(), 0, naked);
-	};
-	void* Naked()
-	{
-		return naked;
-	};
-	void Unhook()
-	{
-		if (!Status) return;
-		memcpy(Address, OriginalBytes, BytesSize);
-		Status = false;
-	};
+	void* Naked();
+
+	void Unhook();
 };
 
 static class DetourHook
 {
 	static sVec<CHooked*> Hooked;
 public:
-	static CHooked* Hook(void* Dst, void* Src, size_t size = 5)
-	{
-		ptrdiff_t rel32 = (int)Src - (int)Dst - 5;
-		DWORD OldProto{ 0 };
-		unsigned char* ogbytes = (unsigned char*)malloc(size);
-		VirtualProtect(Dst, size, PAGE_EXECUTE_READWRITE, &OldProto);
-		memcpy(ogbytes, Dst, size);
-		*(BYTE*)Dst = 0xE9;
-		*(int*)((BYTE*)Dst + 1) = rel32;
-		if (size - 5 > 0)
-			memset((char*)Dst + 5, 0x90, size - 5);
-		VirtualProtect(Dst, size, OldProto, NULL);
-		CHooked* hook = new CHooked(Dst, ogbytes, size);
-		Hooked.Push(hook);
-		return hook;
-	};
-	static void UnhookAll()
-	{
-		for (size_t i = 0; i < Hooked.Lenght(); i++)
-			Hooked[i]->Unhook();
-	};
-} DHook;
-sVec<CHooked*> DetourHook::Hooked = { 20 };
+	static CHooked* Hook(void* Dst, void* Src, size_t size = 5);
 
+	static void UnhookAll();
+} DHook;
+
+#if defined(SDK_DETOUR_IMP) || defined(SDK_RENDERER_IMP)
+
+#define NO_MODULE_ERR 0xCCCCCCCC
+
+// SigFinder Implementation
+FORCECALL sVec<int>* SigFinder::ida_sig_resolver(const char* sig)
+{
+	size_t siglen = strlen(sig);
+	sVec<int>* vec = new sVec<int>(siglen+1 / 3);
+	for (size_t i = 0; i < siglen; i+=3)
+	{
+		if (sig[i] == '?' && sig[i+1] == '?')
+		{
+			vec->Push(-1);
+			continue;
+		};
+		if (sig[i] >= 65 && sig[i] <= 90)
+		{
+			vec->Push((sig[i] - 55) << 4);
+		}
+		else
+		{
+			vec->Push((sig[i] - '0') << 4);
+		};
+		if (sig[i + 1] >= 65 && sig[i + 1] <= 90)
+		{
+			(*vec)[vec->Length() - 1] |= (sig[i + 1] - 55);
+		}
+		else
+		{
+			(*vec)[vec->Length() - 1] |= (sig[i + 1] - '0');
+		};
+	};
+	return vec;
+};
+
+SigFinder::SigFinder(const char* module)
+{
+	info = { 0 };
+	const HMODULE hmod = GetModuleHandleA(module);
+	if (hmod == NULL) throw NO_MODULE_ERR;
+	GetModuleInformation(GetCurrentProcess(), hmod, &info, sizeof(MODULEINFO));
+};
+
+SigFinder::SigFinder(LPVOID lpBaseAdress, DWORD SizeOfImage)
+{
+	info = { 0 };
+	info.lpBaseOfDll = lpBaseAdress;
+	info.SizeOfImage = SizeOfImage;
+};
+
+FORCECALL void* SigFinder::find(const char* sig)
+{
+	sVec<int>* pattern = ida_sig_resolver(sig);
+	int* parr = pattern->begin();
+	for (size_t i = 0; i < info.SizeOfImage; i++)
+	{
+		for (size_t j = 0; j < pattern->Length(); j++)
+		{
+			if (parr[j] != -1 && parr[j] != reinterpret_cast<unsigned char*>(info.lpBaseOfDll)[i + j]) break;
+			if (j + 1 == pattern->Length())
+			{
+				delete pattern;
+				return reinterpret_cast<unsigned char*>(info.lpBaseOfDll) + i;
+			};
+		};
+	}
+	delete pattern;
+	return NULL;
+};
+
+// CHooked Implementation
+CHooked::CHooked(void* func, unsigned char* ogbytes, size_t size)
+{
+	Address = func;
+	
+	OriginalBytes = ogbytes;
+
+	BytesSize = size;
+	Status = true;
+
+	void* heap = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, BytesSize + 5);
+	VirtualProtect(heap, BytesSize + 5, PAGE_EXECUTE_READWRITE, NULL);
+	memcpy(heap, OriginalBytes, BytesSize);
+	*(char*)((char*)heap + BytesSize) = 0xE9;
+	*(int*)((char*)heap + BytesSize + 1) = (int)Address - ((int)heap + (int)BytesSize);
+	naked = heap;
+};
+
+CHooked::~CHooked()
+{
+	Unhook();
+	free(OriginalBytes);
+	HeapFree(GetProcessHeap(), 0, naked);
+};
+
+void* CHooked::Naked()
+{
+	return naked;
+};
+
+void CHooked::Unhook()
+{
+	if (!Status) return;
+	memcpy(Address, OriginalBytes, BytesSize);
+	Status = false;
+};
+
+// DetourHook Implementation
+CHooked* DetourHook::Hook(void* Dst, void* Src, size_t size)
+{
+	ptrdiff_t rel32 = (int)Src - (int)Dst - 5;
+	DWORD OldProto{ 0 };
+	unsigned char* ogbytes = (unsigned char*)malloc(size);
+	VirtualProtect(Dst, size, PAGE_EXECUTE_READWRITE, &OldProto);
+	memcpy(ogbytes, Dst, size);
+	*(BYTE*)Dst = 0xE9;
+	*(int*)((BYTE*)Dst + 1) = rel32;
+	if (size - 5 > 0)
+		memset((char*)Dst + 5, 0x90, size - 5);
+	VirtualProtect(Dst, size, OldProto, NULL);
+	CHooked* hook = new CHooked(Dst, ogbytes, size);
+	Hooked.Push(hook);
+	return hook;
+};
+
+void DetourHook::UnhookAll()
+{
+	for (size_t i = 0; i < Hooked.Length(); i++)
+		Hooked[i]->Unhook();
+};
+
+sVec<CHooked*> DetourHook::Hooked = { 20 };
 #endif	// SDK_DETOUR_IMP
+
+typedef void(__fastcall* RenderFn)(void*, void*);
+typedef void(__cdecl* RenderEventListenerFn)(void);
+typedef void* (__fastcall* ReadFileFn)(void*, const char*);
+typedef bool(__fastcall* LoadTextureFn)(int, const unsigned char*, int, int*, int*, void*);
+typedef int(__fastcall* LoadSvgFormFileFn)(const char*, int, int, int);
+
+enum TextureType
+{
+	TEXTURE_SVG,
+	TEXTURE_PNG,
+	TEXTURE_JPG
+};
+
+class EventListener
+{
+	size_t index;
+	bool menu;
+	bool status;
+public:
+	EventListener(size_t index, bool menu) : index(index), menu(menu), status(true) {};
+	~EventListener() { remove(); };
+	void remove();
+};
+
+struct CTexture
+{
+	int id;
+	TextureType type;
+	Vec2 Size;
+	CTexture(int id, TextureType type, int width, int heigth) : id(id), type(type), Size(width, heigth) {};
+};
+
+static class Renderer final
+{
+MEMBERS_PRIVATE
+	static void*** RenderCtx;
+	static void** RenderVT;
+	static sVec<RenderEventListenerFn> Events;
+	static sVec<RenderEventListenerFn> MenuEvents;
+	static CHooked* RenderHook;
+	static CHooked* MenuRenderHook;
+	static ReadFileFn ExReadFile;
+	static LoadTextureFn LoadTexture;
+	static LoadSvgFormFileFn LoadSvgFromFile;
+	static void __fastcall RenderListener(void* ecx, void* edx);
+	static void __fastcall MenuRenderListener(void* ecx, void* edx);
+	static void RemoveEvent(size_t index);
+	static void RemoveMenuEvent(size_t index);
+	friend class EventListener;
+MEMBERS_PUBLIC
+	static FORCECALL void Init();
+	static FORCECALL void Term();
+	static EventListener* AddEvent(RenderEventListenerFn event);
+	static EventListener* AddMenuEvent(RenderEventListenerFn event);
+	static Vec2 ScreenSize();
+	static Vec2 MeasureText(wchar_t* text, unsigned int flags);
+	static int ScreenWidth();
+	static int ScreenHeigth();
+	static void Text(Vec2 pos, VecCol color, wchar_t* text, int flags, unsigned int maxlen = 0);
+	static void Rect(Vec2 pos, Vec2 size, VecCol color);
+	static void OutlineRect(Vec2 pos, Vec2 size, VecCol color, int thickness);
+	static void OutlinedRect(Vec2 pos, Vec2 size, VecCol colorin, VecCol colorout, int thickness);
+	static void Gradient(Vec2 pos, Vec2 size, VecCol color1, VecCol color2, bool horizontal = true);
+	static void Triangle(Vec2 p1, Vec2 p2, Vec2 p3, VecCol color);
+	static void Circle(Vec2 pos, VecCol color, float radius, float rotation = 0.f, float percentage = 1.f);
+	static void OutlineCircle(Vec2 pos, VecCol color, float radius, float rotation = 0.f, float percentage = 1.f, float thickness = 1.f);
+	static void Texture(int id, Vec2 pos, Vec2 size, VecCol color, int flag, int offset = 0, float scale = 1.f);
+	static CTexture* LoadSVGTextureFromFile(const char* filename, int width, int heigth);
+	static FORCECALL CTexture* LoadPNGTextureFromFile(const char* filename, int width, int heigth);
+	static FORCECALL CTexture* LoadJPGTextureFromFile(const char* filename, int width, int heigth);
+	static FORCECALL CTexture* LoadTextureFromMemory(const unsigned char* data, size_t size, TextureType type, int width, int heigth);
+};
+
+#ifdef SDK_RENDERER_IMP
+
+#define RECT_INDEX					0x04
+#define GRADIENTV_INDEX				0x06
+#define GRADIENTH_INDEX				0x07
+#define TRIANGLE_INDEX				0x0A
+#define CIRCLE_INDEX				0x0B
+#define CIRCLEOUT_INDEX				0x0C
+#define TEXT_INDEX					0x0F
+#define TEXTMEASURE_INDEX			0x11
+#define SCREENSIZE_INDEX			0x12
+#define TEXTUREINT_INDEX			0x13
+#define TEXTURE_INDEX				0x17
+#define RECTOUT_INDEX				0x29
+#define RECTINOUT_INDEX				0x2A
+
+#define TEXT_FLAG_DPI_SCALED		0x0
+#define TEXT_FLAG_BOLD				0x1
+#define TEXT_FLAG_LARGE				0x2
+#define TEXT_FLAG_SMALL				0x4
+#define TEXT_FLAG_CENTRED			0x10
+#define TEXT_FLAG_RIGHT_ALLIGNED	0x80
+#define TEXT_FLAG_DEFAULT			0x100
+
+#define TEXTURE_FLAG_AUTO			0x0
+#define TEXTURE_FLAG_FILLED			0x1
+#define TEXTURE_FLAG_REPEAT			0x2
+
+typedef void(__fastcall* ScreenSizeFn)(void*, int*, int*);
+typedef void(__fastcall* TextMeasureFn)(void*, int*, wchar_t*, int, int);
+typedef void(__fastcall* RenderTextFn)(void*, int, int, int, int, int, wchar_t*, size_t);
+typedef void(__thiscall* RenderRectFn)(void*, int, int, int, int, int);
+typedef void(__fastcall* RenderRectOutFn)(void*, int, int, int, int, int, int);
+typedef void(__fastcall* RenderRectInOutFn)(void*, int, int, int, int, int, int, int);
+typedef void(__thiscall* RenderGradientFn)(void*, int, int, int, int, int, int);
+typedef void(__thiscall* RenderTriangleFn)(void*, int, int, int, int, int, int, int);
+typedef void(__vectorcall* RenderCircleFn)(void*, int, int, int, float, float, float);
+typedef void(__vectorcall* RenderCircleOutFn)(void*, int, int, int, float, float, float, float);
+typedef void(__vectorcall* RenderTextureFn)(void*, int, int, int, int, int, int, int, int, int, float);
+typedef int(__fastcall* RenderTextureAddFn)(void*, void*, int, int, size_t, int, int);
+
+typedef struct 
+{
+	unsigned char* ChunkStart;
+	unsigned char* ChunkEnd;
+	unsigned char* CappacityEnd;
+} DataChunk;
+
+// EventListener Implementation
+void EventListener::remove()
+{
+	if (!status) return;
+	if (menu)
+		Renderer::RemoveMenuEvent(index);
+	else
+		Renderer::RemoveEvent(index);
+	status = false;
+};
+
+// Renderer Implementation
+void __fastcall Renderer::RenderListener(void* ecx, void* edx)
+{
+	for (size_t i = 0; i < Events.Length(); i++)
+	{
+		Events[i]();
+	};
+	reinterpret_cast<RenderFn>(RenderHook->Naked())(ecx, edx);
+};
+
+void __fastcall  Renderer::MenuRenderListener(void* ecx, void* edx)
+{
+	for (size_t i = 0; i < MenuEvents.Length(); i++)
+	{
+		MenuEvents[i]();
+	};
+	reinterpret_cast<RenderFn>(MenuRenderHook->Naked())(ecx, edx);
+};
+
+void FORCECALL Renderer::Init()
+{
+	if (RenderHook != NULL) return;
+	RenderVT = *RenderCtx;
+	SigFinder chunk((LPVOID)0x43310000, 0x2FC000u);
+	int LoadTextureCall = (int)chunk.find("E8 ?? ?? ?? ?? 84 C0 74 76 8B 4C 24 14");
+	LoadTexture = (LoadTextureFn)(*(int*)(LoadTextureCall + 1) + (int)LoadTextureCall + 5);
+	LoadSvgFromFile = (LoadSvgFormFileFn)chunk.find("55 8B EC 83 E4 F8 83 EC 28 56 83 CE FF 83 3D ?? ?? ?? ?? 00 57 8B FA");
+	ExReadFile = (ReadFileFn)chunk.find("55 8B EC 83 E4 F8 83 EC 14 53 56 57 8B F9 B8");
+	RenderHook = DetourHook::Hook(chunk.find("55 8B EC 83 E4 F8 E8 ?? ?? ?? ?? 83 38 00 74 36 89 0D ?? ?? ?? ??"), RenderListener, 6);
+	MenuRenderHook = DetourHook::Hook(chunk.find("56 FF 74 24 08 8B F1 E8"), MenuRenderListener);
+};
+
+void FORCECALL Renderer::Term()
+{
+	if (RenderHook == NULL) return;
+	Events.~sVec();
+	MenuEvents.~sVec();
+	RenderHook->Unhook();
+	MenuRenderHook->Unhook();
+};
+
+EventListener* Renderer::AddEvent(RenderEventListenerFn event)
+{
+	Events.Push(event);
+	return new EventListener(Events.Length() - 1, false);
+};
+
+EventListener* Renderer::AddMenuEvent(RenderEventListenerFn event)
+{
+	MenuEvents.Push(event);
+	return new EventListener(MenuEvents.Length() - 1, true);
+};
+
+void Renderer::RemoveEvent(size_t index)
+{
+	Events.Remove(index);
+};
+
+void Renderer::RemoveMenuEvent(size_t index)
+{
+	MenuEvents.Remove(index);
+};
+
+Vec2 Renderer::ScreenSize()
+{
+	Vec2 size(0, 0);
+	SkeetSDK::VtableBind<ScreenSizeFn>(RenderVT, SCREENSIZE_INDEX)(RenderCtx, &size.x, &size.y);
+	return size;
+};
+
+Vec2 Renderer::MeasureText(wchar_t* text, unsigned int flags)
+{
+	Vec2 vec{};
+	SkeetSDK::VtableBind<TextMeasureFn>(RenderVT, TEXTMEASURE_INDEX)(RenderCtx, reinterpret_cast<int*>(&vec), text, wcslen(text), flags);
+	return vec;
+};
+
+int Renderer::ScreenWidth()
+{
+	int w = 0;
+	SkeetSDK::VtableBind<ScreenSizeFn>(RenderVT, SCREENSIZE_INDEX)(RenderCtx, &w, NULL);
+	return w;
+};
+
+int Renderer::ScreenHeigth()
+{
+	int h = 0;
+	SkeetSDK::VtableBind<ScreenSizeFn>(RenderVT, SCREENSIZE_INDEX)(RenderCtx, NULL, &h);
+	return h;
+};
+
+void Renderer::Text(Vec2 pos, VecCol color, wchar_t* text, int flags, unsigned int maxlen)
+{
+	SkeetSDK::VtableBind<RenderTextFn>(RenderVT, TEXT_INDEX)(RenderCtx, flags, pos.x, pos.y, color.pack(), 0x8 * maxlen, text, wcslen(text));
+};
+
+void Renderer::Rect(Vec2 pos, Vec2 size, VecCol color)
+{
+	SkeetSDK::VtableBind<RenderRectFn>(RenderVT, RECT_INDEX)(RenderCtx, pos.x, pos.y, size.x, size.y, color.pack());
+
+};
+
+void Renderer::OutlineRect(Vec2 pos, Vec2 size, VecCol color, int thickness)
+{
+	SkeetSDK::VtableBind<RenderRectOutFn>(RenderVT, RECTOUT_INDEX)(RenderCtx, thickness, pos.x, pos.y, size.x, size.y, color.pack());
+};
+
+void Renderer::OutlinedRect(Vec2 pos, Vec2 size, VecCol colorin, VecCol colorout, int thickness)
+{
+	SkeetSDK::VtableBind<RenderRectInOutFn>(RenderVT, RECTINOUT_INDEX)(RenderCtx, thickness, pos.x, pos.y, size.x, size.y, colorin.pack(), colorout.pack());
+};
+
+void Renderer::Gradient(Vec2 pos, Vec2 size, VecCol color1, VecCol color2, bool horizontal)
+{
+	if (horizontal)
+		SkeetSDK::VtableBind<RenderGradientFn>(RenderVT, GRADIENTH_INDEX)(RenderCtx, pos.x, pos.y, size.x, size.y, color1.pack(), color2.pack());
+	else
+		SkeetSDK::VtableBind<RenderGradientFn>(RenderVT, GRADIENTV_INDEX)(RenderCtx, pos.x, pos.y, size.x, size.y, color1.pack(), color2.pack());
+};
+
+void Renderer::Triangle(Vec2 p1, Vec2 p2, Vec2 p3, VecCol color)
+{
+	SkeetSDK::VtableBind<RenderTriangleFn>(RenderVT, TRIANGLE_INDEX)(RenderCtx, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, color.pack());
+};
+
+void Renderer::Circle(Vec2 pos, VecCol color, float radius, float rotation, float percentage)
+{
+	SkeetSDK::VtableBind<RenderCircleFn>(RenderVT, CIRCLE_INDEX)(RenderCtx, pos.x, pos.y, color.pack(), radius, rotation, percentage);
+
+};
+
+void Renderer::OutlineCircle(Vec2 pos, VecCol color, float radius, float rotation, float percentage, float thickness)
+{
+	SkeetSDK::VtableBind<RenderCircleOutFn>(RenderVT, CIRCLEOUT_INDEX)(RenderCtx, pos.x, pos.y, color.pack(), radius, rotation, percentage, thickness);
+};
+
+void Renderer::Texture(int id, Vec2 pos, Vec2 size, VecCol color, int flag, int offset, float scale)
+{
+	SkeetSDK::VtableBind<RenderTextureFn>(RenderVT, TEXTURE_INDEX)(RenderCtx, id, pos.x, pos.y, color.pack(), offset, 0, size.x, size.y, flag, scale);
+};
+
+FORCECALL CTexture* Renderer::LoadSVGTextureFromFile(const char* filename, int width, int heigth)
+{
+	int id = LoadSvgFromFile(filename, width, heigth, -1);
+	if (id < 0) return NULL;
+	return new CTexture(id, TEXTURE_SVG, width, heigth);
+};
+
+FORCECALL CTexture* Renderer::LoadPNGTextureFromFile(const char* filename, int width, int heigth)
+{
+	DataChunk textureChunk{0};
+	DataChunk rawContent{0};
+	ExReadFile(&textureChunk, filename);
+	if (textureChunk.ChunkStart == textureChunk.ChunkEnd) return NULL;
+	if (Renderer::LoadTexture(TEXTURE_PNG, textureChunk.ChunkStart, textureChunk.ChunkEnd - textureChunk.ChunkStart, &width, &heigth, &rawContent))
+	{
+		int byteSize = (rawContent.ChunkEnd - rawContent.ChunkStart) >> 2;
+		if (byteSize != 0) {
+			unsigned int* ptr = (unsigned int*)rawContent.ChunkStart;
+			for (int i = 0; i < byteSize; ++i)
+				ptr[i] = _rotr(_byteswap_ulong(ptr[i]), 8);
+		}
+		int id = SkeetSDK::VtableBind<RenderTextureAddFn>(RenderVT, TEXTUREINT_INDEX)(RenderCtx, rawContent.ChunkStart, width, heigth, width * heigth * 4, 0, 0);
+		Sleep(1000);
+		if (id < 0) return NULL;
+		return new CTexture(id, TEXTURE_PNG, width, heigth);
+	}
+	return NULL;
+};
+
+FORCECALL CTexture* Renderer::LoadJPGTextureFromFile(const char* filename, int width, int heigth)
+{
+	DataChunk textureChunk{0};
+	DataChunk rawContent{0};
+	ExReadFile(&textureChunk, filename);
+	if (Renderer::LoadTexture(TEXTURE_JPG, textureChunk.ChunkStart, textureChunk.ChunkEnd - textureChunk.ChunkStart, &width, &heigth, &rawContent))
+	{
+		int byteSize = (rawContent.ChunkEnd - rawContent.ChunkStart) >> 2;
+		if (byteSize != 0) {
+			unsigned int* ptr = (unsigned int*)rawContent.ChunkStart;
+			for (int i = 0; i < byteSize; ++i)
+				ptr[i] = _rotr(_byteswap_ulong(ptr[i]), 8);
+		}
+		int id = SkeetSDK::VtableBind<RenderTextureAddFn>(RenderVT, TEXTUREINT_INDEX)(RenderCtx, rawContent.ChunkStart, width, heigth, width * heigth * 4, 0, 0);
+		if (id < 0) return NULL;
+		return new CTexture(id, TEXTURE_JPG, width, heigth);
+	}
+	return NULL;
+};
+
+FORCECALL CTexture* Renderer::LoadTextureFromMemory(const unsigned char* data, size_t size, TextureType type, int width, int heigth)
+{
+	DataChunk rawContent{0};
+	if (Renderer::LoadTexture(type, data, size, &width, &heigth, &rawContent))
+	{
+		int byteSize = (rawContent.ChunkEnd - rawContent.ChunkStart) >> 2;
+		if (byteSize != 0) {
+			unsigned int* ptr = (unsigned int*)rawContent.ChunkStart;
+			for (int i = 0; i < byteSize; ++i)
+				ptr[i] = _rotr(_byteswap_ulong(ptr[i]), 8);
+		}
+		int id = SkeetSDK::VtableBind<RenderTextureAddFn>(RenderVT, TEXTUREINT_INDEX)(RenderCtx, rawContent.ChunkStart, width, heigth, width * heigth * 4, 0, 0);
+		if (id < 0) return NULL;
+		return new CTexture(id, type, width, heigth);
+	}
+	return NULL;
+};
+
+void*** Renderer::RenderCtx			= (void***)0x43479928; // *(void****)0x4347690C
+void** Renderer::RenderVT			= NULL;
+CHooked* Renderer::RenderHook		= NULL;
+CHooked* Renderer::MenuRenderHook	= NULL;
+ReadFileFn Renderer::ExReadFile		= NULL;
+LoadTextureFn Renderer::LoadTexture = NULL;
+LoadSvgFormFileFn Renderer::LoadSvgFromFile = NULL;
+sVec<RenderEventListenerFn> Renderer::Events(40);
+sVec<RenderEventListenerFn> Renderer::MenuEvents(40);
+#endif // SDK_RENDERER_IMP
 #endif // SKEET_H

@@ -1,11 +1,47 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
-#define _SDK_PUBLIC_UNSAFE_MEMBERS
-#define SDK_DETOUR_IMP
+#define SDK_RENDERER_IMP
 #include "skeetsdk.h"
-#include <string>
-#include <iostream>
 
+static void UnSetVisibles();
+static void LoadConfig();
+static void SetMenuKey(int KEY);
+static void PrintAllLuas();
+static void Watermark();
+static void hookPrint();
+static void hookCryptMethod();
+static void hookTextRender();
+static void hookPrint();
+static void hookTextureLoad();
+
+DWORD WINAPI MainThread(LPVOID lpParam)
+{
+    //AllocConsole();
+    //freopen("CONOUT$", "w", stdout);
+    SkeetSDK::WaitForMenu();
+    UnSetVisibles();
+    LoadConfig();
+    SetMenuKey(VK_INSERT);
+    SkeetSDK::AllowUnsafe(true);
+    hookTextRender();
+    hookPrint();
+    Watermark();
+    return 0;
+}
+
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved)
+{
+
+    if (fdwReason == DLL_PROCESS_ATTACH)
+        CreateThread(nullptr, 0, MainThread, nullptr, 0, nullptr);
+
+    return TRUE;
+}
+
+
+//----------------------------------------------------------------------------------------------------------//
+//----------------------------------------------------------------------------------------------------------//
+//----------------------------------------------------------------------------------------------------------//
 static void UnSetVisibles()
 {
     SkeetSDK::ForEach(SkeetSDK::GetChild(Misc, 2), [](Element* element) {
@@ -29,9 +65,24 @@ static void PrintAllLuas()
     int Luacount = SkeetSDK::LuaCount();
     for (int i = 0; i < Luacount; i++)
     {
-        SkeetSDK::CPrintf({255, 255, 255, 255}, "Lua #%d: %ls\n", i, SkeetSDK::LuaName(i));
+        SkeetSDK::CPrintf({ 255, 255, 255, 255 }, "Lua #%d: %ls\n", i, SkeetSDK::LuaName(i));
     }
 }
+
+static void WatermarkEvent()
+{
+    const wchar_t* name = L"SkeetSDK";
+    const unsigned int flags = TEXT_FLAG_CENTRED | TEXT_FLAG_DEFAULT;
+    int w = Renderer::ScreenWidth();
+    Renderer::Rect({ w - 80, 5 }, { 70, 20 }, {0, 0, 0, 120});
+    Renderer::Text({ w - 45, 15 }, { 0xFFFFFFFF }, (wchar_t*)name, flags);
+};
+
+static void Watermark()
+{
+    Renderer::Init();
+    Renderer::AddEvent(WatermarkEvent);
+};
 
 CryptFn ogCryptfn = NULL;
 static void __fastcall CyrptHook(wchar_t* str, size_t bsize, int step)
@@ -40,10 +91,10 @@ static void __fastcall CyrptHook(wchar_t* str, size_t bsize, int step)
     ogCryptfn(str, bsize, step);
 };
 
+SigFinder schunk((LPVOID)0x43310000, 0x2FC000u);
 // "51 53 8B 5C 24 0C 55 56 8B E9" - CryptSignature
 static void hookCryptMethod()
 {
-    SigFinder schunk((LPVOID)0x43310000, 0x2FC000u); // scan on skeet mapped chunk
     ogCryptfn = (decltype(ogCryptfn))DHook.Hook(schunk.find("51 53 8B 5C 24 0C 55 56 8B E9"), CyrptHook, 6)->Naked();
 }
 
@@ -57,8 +108,8 @@ static int InBox(Listbox* list, wchar_t* elem)
     return -1;
 };
 
-typedef void(__fastcall* TextRender)(void*, int, int, int, int, int, wchar_t*, size_t);
-TextRender ogTextRender = NULL;
+
+RenderTextFn ogTextRender = NULL;
 int ctext = 0;
 Listbox* box = NULL;
 Textbox* t1 = NULL;
@@ -88,7 +139,7 @@ static void __fastcall ButtonHandle(void* ecx, void* edx)
 
 static void __fastcall ButtonHandleD(void* ecx, void* edx)
 {
-    if (!box->ItemsCount || !custom.Lenght()) return;
+    if (!box->ItemsCount || !custom.Length()) return;
     custom.Removef(box->Info.SelectedItem);
     SkeetSDK::RemoveListboxVar(box, box->Info.SelectedItem);
 };
@@ -96,11 +147,15 @@ static void __fastcall ButtonHandleD(void* ecx, void* edx)
 static void __fastcall TextRenderHook(void* ths, int id, int x, int y, int color, int somint, wchar_t* text, size_t len)
 {
     //printf("POS: %d | %d\n", x, y);
-    //printf("COLOR: %x\nINT: %d\n", color, somint);
+    //printf("COLOR: %x\nINT: %x\n", color, somint);
     //printf("THIS: %p\nEDX: %d\n", ths, id);
     //printf("%ls | len: %d\n", text, len);
+    if (somint > 0)
+    {
+        printf("FLAGS: %x\n", somint);
+    };
     int mcol = SkeetSDK::GetMenuCol().pack();
-    int i = color == mcol ? InBox(box, text+1) : InBox(box, text);
+    int i = color == mcol ? InBox(box, text + 1) : InBox(box, text);
     if (i >= 0)
     {
         text = (wchar_t*)custom[i];
@@ -119,7 +174,6 @@ static void hookTextRender()
     t2 = SkeetSDK::CreateTextbox(child, false, (wchar_t*)L"Custom");
     SkeetSDK::CreateButton(child, (wchar_t*)L"Add redefine", ButtonHandle, NULL);
     SkeetSDK::CreateButton(child, (wchar_t*)L"Delete redefine", ButtonHandleD, NULL);
-    SigFinder schunk((LPVOID)0x43310000, 0x2FC000u);
     ogTextRender = (decltype(ogTextRender))DHook.Hook(schunk.find("55 8B EC 53 56 8B 75 1C"), TextRenderHook)->Naked();
 }
 // TextRender HOOK end
@@ -136,27 +190,17 @@ static void __fastcall PrintHook(char* ecx)
 
 static void hookPrint()
 {
-    ogPrintfn = (decltype(ogPrintfn))DHook.Hook((LPVOID)0x4341CDD9, PrintHook, 6)->Naked();
+    ogPrintfn = (decltype(ogPrintfn))DHook.Hook(schunk.find("55 8B EC 83 E4 F8 83 EC 20 80"), PrintHook, 6)->Naked();
 }
 // Print console HOOK end
-
-DWORD WINAPI MainThread(LPVOID lpParam)
+LoadTextureFn ogl = NULL;
+static void __fastcall TextureLoadHook(int type, unsigned char* data, int size, int* w, int* h, int* c)
 {
-    AllocConsole();
-    freopen("CONOUT$", "w", stdout);
-    SkeetSDK::WaitForMenu();
-    UnSetVisibles();
-    LoadConfig();
-    SetMenuKey(VK_INSERT);
-    SkeetSDK::AllowUnsafe(true);
-    return 0;
-}
+    printf("Texture loaded: %d | %p | %x | %d | %d | %p\n", type, data, size, *w, *h, c);
+    ogl(type, data, size, w, h, c);
+};
 
-BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved)
+static void hookTextureLoad()
 {
-
-    if (fdwReason == DLL_PROCESS_ATTACH)
-        CreateThread(nullptr, 0, MainThread, nullptr, 0, nullptr);
-
-    return TRUE;
+    ogl = (decltype(ogl))DHook.Hook((LPVOID)0x4332B8B2, TextureLoadHook)->Naked();
 }
