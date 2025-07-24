@@ -11,8 +11,8 @@ static void Watermark();
 static void hookPrint();
 static void hookCryptMethod();
 static void hookTextRender();
-static void hookPrint();
 static void hookTextureLoad();
+static void hookLuaLoad();
 
 DWORD WINAPI MainThread(LPVOID lpParam)
 {
@@ -23,8 +23,9 @@ DWORD WINAPI MainThread(LPVOID lpParam)
     LoadConfig();
     SetMenuKey(VK_INSERT);
     SkeetSDK::AllowUnsafe(true);
-    hookTextRender();
-    hookPrint();
+    //hookTextRender();
+    //hookPrint();
+    //hookLuaLoad();
     Watermark();
     return 0;
 }
@@ -68,7 +69,6 @@ static void PrintAllLuas()
         SkeetSDK::CPrintf({ 255, 255, 255, 255 }, "Lua #%d: %ls\n", i, SkeetSDK::LuaName(i));
     }
 }
-
 static void WatermarkEvent()
 {
     const wchar_t* name = L"SkeetSDK";
@@ -81,7 +81,7 @@ static void WatermarkEvent()
 static void Watermark()
 {
     Renderer::Init();
-    Renderer::AddEvent(WatermarkEvent);
+    Renderer::AddEvent(REVENT_FINAL, WatermarkEvent);
 };
 
 CryptFn ogCryptfn = NULL;
@@ -204,3 +204,16 @@ static void hookTextureLoad()
 {
     ogl = (decltype(ogl))DHook.Hook((LPVOID)0x4332B8B2, TextureLoadHook)->Naked();
 }
+
+LoadLuaFn ogluald = NULL;
+
+static void __fastcall LuaLoadHook(wchar_t* ecx, LuaChunk* edx)
+{
+    printf("Lua loaded: %ls | %ls\n", ecx, edx->NameChunk);
+    ogluald(ecx, edx);
+};
+
+static void hookLuaLoad()
+{
+    ogluald = (LoadLuaFn)DHook.Hook(SkeetSDK::LoadLua, LuaLoadHook)->Naked();
+};
