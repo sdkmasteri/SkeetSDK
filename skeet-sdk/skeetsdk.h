@@ -1661,7 +1661,7 @@ MEMBERS_PRIVATE
 	static sVec<RenderEventListenerFn> FinalEvents;
 	static CHooked* RenderHook;
 	static CHooked* MenuRenderHook;
-	static CHooked* RenderFinalHook;
+	static CHooked* FinalRenderHook;
 	static ReadFileFn ExReadFile;
 	static LoadTextureFn LoadTexture;
 	static LoadSvgFormFileFn LoadSvgFromFile;
@@ -1778,7 +1778,7 @@ void __fastcall Renderer::RenderFinalListener(void* ecx, void* edx)
 	{
 		FinalEvents[i]();
 	};
-	reinterpret_cast<RenderFn>(RenderFinalHook->Naked())(ecx, edx);
+	reinterpret_cast<RenderFn>(FinalRenderHook->Naked())(ecx, edx);
 };
 
 void FORCECALL Renderer::Init()
@@ -1792,7 +1792,7 @@ void FORCECALL Renderer::Init()
 	ExReadFile = (ReadFileFn)chunk.find("55 8B EC 83 E4 F8 83 EC 14 53 56 57 8B F9 B8");
 	RenderHook = DetourHook::Hook(chunk.find("55 8B EC 83 E4 F8 E8 ?? ?? ?? ?? 83 38 00 74 36 89 0D"), RenderListener, 6);
 	MenuRenderHook = DetourHook::Hook(chunk.find("56 FF 74 24 08 8B F1 E8"), MenuRenderListener);
-	RenderFinalHook = DetourHook::Hook(chunk.find("53 56 57 8B F9 8B 57 08 8D 82 A8 00 00 00 F7 DA 1B D2 23 D0 52"), RenderFinalListener);
+	FinalRenderHook = DetourHook::Hook(chunk.find("53 56 57 8B F9 8B 57 08 8D 82 A8 00 00 00 F7 DA 1B D2 23 D0 52"), RenderFinalListener);
 };
 
 void FORCECALL Renderer::Term()
@@ -1800,8 +1800,10 @@ void FORCECALL Renderer::Term()
 	if (RenderHook == NULL) return;
 	RenderEvents.~sVec();
 	MenuEvents.~sVec();
+	FinalEvents.~sVec();
 	RenderHook->Unhook();
 	MenuRenderHook->Unhook();
+	FinalRenderHook->Unhook();
 };
 
 EventListener* Renderer::AddEvent(RenderEventType type, RenderEventListenerFn event)
@@ -1916,7 +1918,6 @@ FORCECALL CTexture* Renderer::LoadPNGTextureFromFile(const char* filename, int w
 				ptr[i] = _rotr(_byteswap_ulong(ptr[i]), 8);
 		}
 		int id = SkeetSDK::VtableBind<RenderTextureAddFn>(RenderVT, TEXTUREINT_INDEX)(RenderCtx, rawContent.ChunkStart, width, heigth, width * heigth * 4, 0, 0);
-		Sleep(1000);
 		if (id < 0) return NULL;
 		return new CTexture(id, TEXTURE_PNG, width, heigth);
 	}
@@ -1965,7 +1966,7 @@ void*** Renderer::RenderCtx			= (void***)0x43479928; // *(void****)0x4347690C
 void** Renderer::RenderVT			= NULL;
 CHooked* Renderer::RenderHook		= NULL;
 CHooked* Renderer::MenuRenderHook	= NULL;
-CHooked* Renderer::RenderFinalHook	= NULL;
+CHooked* Renderer::FinalRenderHook	= NULL;
 ReadFileFn Renderer::ExReadFile		= NULL;
 LoadTextureFn Renderer::LoadTexture = NULL;
 LoadSvgFormFileFn Renderer::LoadSvgFromFile = NULL;
