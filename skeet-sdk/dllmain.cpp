@@ -1,31 +1,28 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #define SDK_RENDERER_IMP
+#define SDK_GLOBALS_IMP
+#define SDK_CLIENT_IMP
 #include "skeetsdk.h"
+#include <chrono>
+#include <ctime>
+#include <cmath>
 
 static void UnSetVisibles();
 static void LoadConfig();
 static void SetMenuKey(int KEY);
 static void PrintAllLuas();
 static void Watermark();
-static void hookPrint();
-static void hookCryptMethod();
-static void hookTextRender();
-static void hookTextureLoad();
-static void hookLuaLoad();
+static void __vectorcall MMLerp(float& a, float min, float max, float& t, float speed);
+
+using namespace SkeetSDK;
 
 DWORD WINAPI MainThread(LPVOID lpParam)
 {
-    //AllocConsole();
-    //freopen("CONOUT$", "w", stdout);
-    SkeetSDK::WaitForMenu();
     UnSetVisibles();
     LoadConfig();
     SetMenuKey(VK_INSERT);
-    SkeetSDK::AllowUnsafe(true);
-    //hookTextRender();
-    //hookPrint();
-    //hookLuaLoad();
+    Utils::AllowUnsafe(true);
     Watermark();
     return 0;
 }
@@ -45,175 +42,68 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved)
 //----------------------------------------------------------------------------------------------------------//
 static void UnSetVisibles()
 {
-    SkeetSDK::ForEach(SkeetSDK::GetChild(Misc, 2), [](Element* element) {
-        SkeetSDK::SetVisible(element, true);
+    Utils::ForEach(UI::GetChild(Misc, 2), [](PElement element) {
+        UI::SetVisible(element, true);
         });
 }
 
 static void LoadConfig()
 {
-    SkeetSDK::LoadCfg();
+    Utils::LoadCfg();
 }
 
 static void SetMenuKey(int KEY)
 {
-    SkeetSDK::SetHotkey(SkeetSDK::GetElement<Hotkey>(SkeetSDK::GetChild(Misc, 2), 1), KEY);
+    UI::SetHotkey(UI::GetElement<Hotkey>(UI::GetChild(Misc, 2), 1), KEY);
 }
 
 static void PrintAllLuas()
 {
-    SkeetSDK::InitConfig();
-    int Luacount = SkeetSDK::LuaCount();
+    Utils::InitConfig();
+    int Luacount = Utils::LuaCount();
     for (int i = 0; i < Luacount; i++)
     {
-        SkeetSDK::CPrintf({ 255, 255, 255, 255 }, "Lua #%d: %ls\n", i, SkeetSDK::LuaName(i));
+        Client::LogColor({ 255, 255, 255, 255 }, "Lua #%d: %ls\n", i, Utils::LuaName(i));
     }
 }
+
+
+static void __vectorcall MMLerp(float& a, float min, float max, float& t, float speed)
+{
+    t += speed;
+    float s = (sinf(t) + 1.f) * 0.5f;
+
+    a = min + (max - min) * s;
+};
+
+float alpha = 255.f;
+float t = 0.f;
 static void WatermarkEvent()
 {
+    auto now = std::chrono::system_clock::now();
+    std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
+    std::tm* localTime = std::localtime(&currentTime);
+    wchar_t timestr[128];
     const wchar_t* name = L"SkeetSDK";
-    const unsigned int flags = TEXT_FLAG_CENTRED | TEXT_FLAG_DEFAULT;
+    swprintf_s(timestr, sizeof(timestr) / sizeof(wchar_t), L" | %02d:%02d:%02d | %d fps", localTime->tm_hour, localTime->tm_min, localTime->tm_sec,
+        (int)(1 / Globals::FrameTime(true)));
+    const unsigned int flags = TEXT_FLAG_DEFAULT;
+    Vec2 strsize = Renderer::MeasureText((wchar_t*)name, flags);
+    Vec2 timesize = Renderer::MeasureText(timestr, flags);
     int w = Renderer::ScreenWidth();
-    Renderer::Rect({ w - 80, 5 }, { 70, 20 }, {0, 0, 0, 120});
-    Renderer::Text({ w - 45, 15 }, { 0xFFFFFFFF }, (wchar_t*)name, flags);
+    Vec2 pos = { w - (strsize.x + timesize.x) - 40, 10 };
+    Vec2 rsize = { strsize.x + timesize.x + 20, strsize.y * 2 };
+    int arr[] = { pos.x, pos.y, rsize.x, rsize.y };
+    Renderer::Rect(pos, rsize, { 12, 12, 12, 160 });
+    VecCol mcol(UI::GetMenuCol());
+    MMLerp(alpha, 60.f, 255.f, t, 5.f * Globals::FrameTime());
+    mcol.a = (unsigned char)alpha;
+    Renderer::Text({ pos.x + 10, pos.y + strsize.y / 2 }, mcol, (wchar_t*)name, flags);
+    Renderer::Text({ pos.x + strsize.x + 10, pos.y + strsize.y / 2 }, { 0xFFFFFFFF }, timestr, flags);
 };
 
 static void Watermark()
 {
     Renderer::Init();
     Renderer::AddEvent(REVENT_FINAL, WatermarkEvent);
-};
-
-CryptFn ogCryptfn = NULL;
-static void __fastcall CyrptHook(wchar_t* str, size_t bsize, int step)
-{
-    printf("%ls\n", str);
-    ogCryptfn(str, bsize, step);
-};
-
-SigFinder schunk((LPVOID)0x43310000, 0x2FC000u);
-// "51 53 8B 5C 24 0C 55 56 8B E9" - CryptSignature
-static void hookCryptMethod()
-{
-    ogCryptfn = (decltype(ogCryptfn))DHook.Hook(schunk.find("51 53 8B 5C 24 0C 55 56 8B E9"), CyrptHook, 6)->Naked();
-}
-
-// TextRender HOOK
-static int InBox(Listbox* list, wchar_t* elem)
-{
-    for (size_t i = 0; i < list->ItemsCount; i++)
-    {
-        if (wcscmp(list->Info.ItemsChunk[i].NameChunk + 1, elem) == 0) return i;
-    };
-    return -1;
-};
-
-
-RenderTextFn ogTextRender = NULL;
-int ctext = 0;
-Listbox* box = NULL;
-Textbox* t1 = NULL;
-Textbox* t2 = NULL;
-sVec<wchar_t*> custom(255);
-
-static void __fastcall ButtonHandle(void* ecx, void* edx)
-{
-    size_t tsze = (t1->Length + 2) * sizeof(wchar_t);
-
-    wchar_t* text = (wchar_t*)malloc(tsze);
-    memset(text, 0x00, tsze);
-    text[0] = (wchar_t)L'*';
-    memcpy(text + 1, t1->Text, tsze - sizeof(wchar_t) * 2);
-
-    SkeetSDK::AddListboxVar(box, text, tsze);
-    free(text);
-
-    size_t bsze = (t2->Length + 1) * sizeof(wchar_t);
-    wchar_t* ptr = (wchar_t*)malloc(bsze);
-    memset(ptr, 0x00, bsze);
-    memcpy(ptr, t2->Text, bsze - sizeof(wchar_t));
-    custom.Push(ptr);
-    t1->Length = 0;
-    t2->Length = 0;
-};
-
-static void __fastcall ButtonHandleD(void* ecx, void* edx)
-{
-    if (!box->ItemsCount || !custom.Length()) return;
-    custom.Removef(box->Info.SelectedItem);
-    SkeetSDK::RemoveListboxVar(box, box->Info.SelectedItem);
-};
-
-static void __fastcall TextRenderHook(void* ths, int id, int x, int y, int color, int somint, wchar_t* text, size_t len)
-{
-    //printf("POS: %d | %d\n", x, y);
-    //printf("COLOR: %x\nINT: %x\n", color, somint);
-    //printf("THIS: %p\nEDX: %d\n", ths, id);
-    //printf("%ls | len: %d\n", text, len);
-    if (somint > 0)
-    {
-        printf("FLAGS: %x\n", somint);
-    };
-    int mcol = SkeetSDK::GetMenuCol().pack();
-    int i = color == mcol ? InBox(box, text + 1) : InBox(box, text);
-    if (i >= 0)
-    {
-        text = (wchar_t*)custom[i];
-        len = wcslen(text);
-    }
-
-    ogTextRender(ths, id, x, y, color, somint, text, len);
-}
-
-static void hookTextRender()
-{
-    CTab* tab = SkeetSDK::CreateTab((wchar_t*)L"Textor", { 6, 20 + 64 * 9 });
-    Child* child = SkeetSDK::CreateChild(tab, (wchar_t*)L"Text", { 0x00, 0x24, 0x00, 0x24 }, false);
-    box = SkeetSDK::CreateListbox(child, (wchar_t*)L"Strings", &ctext, NULL, NULL, true);
-    t1 = SkeetSDK::CreateTextbox(child, false, (wchar_t*)L"Original");
-    t2 = SkeetSDK::CreateTextbox(child, false, (wchar_t*)L"Custom");
-    SkeetSDK::CreateButton(child, (wchar_t*)L"Add redefine", ButtonHandle, NULL);
-    SkeetSDK::CreateButton(child, (wchar_t*)L"Delete redefine", ButtonHandleD, NULL);
-    ogTextRender = (decltype(ogTextRender))DHook.Hook(schunk.find("55 8B EC 53 56 8B 75 1C"), TextRenderHook)->Naked();
-}
-// TextRender HOOK end
-
-// Print console HOOK
-typedef void(__thiscall* LuaPrint)(char*);
-LuaPrint ogPrintfn = NULL;
-
-static void __fastcall PrintHook(char* ecx)
-{
-    printf("%s\n", ecx);
-    ogPrintfn(ecx);
-};
-
-static void hookPrint()
-{
-    ogPrintfn = (decltype(ogPrintfn))DHook.Hook(schunk.find("55 8B EC 83 E4 F8 83 EC 20 80"), PrintHook, 6)->Naked();
-}
-// Print console HOOK end
-LoadTextureFn ogl = NULL;
-static void __fastcall TextureLoadHook(int type, unsigned char* data, int size, int* w, int* h, int* c)
-{
-    printf("Texture loaded: %d | %p | %x | %d | %d | %p\n", type, data, size, *w, *h, c);
-    ogl(type, data, size, w, h, c);
-};
-
-static void hookTextureLoad()
-{
-    ogl = (decltype(ogl))DHook.Hook((LPVOID)0x4332B8B2, TextureLoadHook)->Naked();
-}
-
-LoadLuaFn ogluald = NULL;
-
-static void __fastcall LuaLoadHook(wchar_t* ecx, LuaChunk* edx)
-{
-    printf("Lua loaded: %ls | %ls\n", ecx, edx->NameChunk);
-    ogluald(ecx, edx);
-};
-
-static void hookLuaLoad()
-{
-    ogluald = (LoadLuaFn)DHook.Hook(SkeetSDK::LoadLua, LuaLoadHook)->Naked();
 };
