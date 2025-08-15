@@ -2,6 +2,9 @@
 #define SKEET_H
 #include <Windows.h>
 #include <psapi.h>
+#include <vector>
+
+using std::vector;
 
 #if defined(__GNUC__) || defined(__GNUG__)
 #define FORCECALL __attribute__((noinline))
@@ -87,15 +90,15 @@ namespace SkeetSDK {
 // enums
 	enum Tab
 	{
-		Rage,
+		RAGE,
 		AA,
-		Legit,
-		Visuals,
-		Misc,
-		Skins,
-		Plist,
-		Config,
-		Lua
+		LEGIT,
+		VISUALS,
+		MISC,
+		SKINS,
+		PLIST,
+		CONFIG,
+		LUA
 	};
 
 	enum MenuStatus
@@ -446,9 +449,9 @@ namespace SkeetSDK {
 
 //structs class
 #pragma pack(push, 1)
-	typedef struct Child* PChild, ** PChilds;
-	typedef struct CTab* PCTab, ** PCTabs;
-	typedef struct Element* PElement, ** PElements;
+	typedef struct Child* PChild;
+	typedef struct CTab* PCTab;
+	typedef struct Element* PElement;
 	typedef struct CMenu* PCMenu;
 	typedef struct Hotkey* PHotkey;
 	struct MouseInfo
@@ -478,16 +481,16 @@ namespace SkeetSDK {
 	{
 		void*	ecx;
 		F2PFn	function;	// function(ecx, elementptr)
-	} *PCall;
+		Call() = default;
+		Call(void* ecx, F2PFn function) : ecx(ecx), function(function) {};
+	};
 
 	template <typename T>
 	struct BoxVars
 	{
-		T*		NameChunk;
-		T*		NameChunkEnd;
-		void*	CpacityEnd;
-		char	pad1[0x4];
-		int		Index;
+		vector<T>	Name;
+		char		pad1[0x4];
+		int			Index;
 	};
 
 	template <typename T>
@@ -502,7 +505,7 @@ namespace SkeetSDK {
 		int		Font;		// 0x1C
 	};
 
-	// placeholed
+	// placeholder
 	class IElement
 	{
 		virtual void fn0() = 0;
@@ -517,9 +520,8 @@ namespace SkeetSDK {
 		char				pad1[0x8];
 		PXorW				CryptedName;	// 0x38
 		char				pad2[0x4];
-		PCall				CallChunk;		// 0x40
-		PCall				CallChunkEnd;	// 0x44
-		char				pad3[0x8];
+		vector<Call>		Calls;			// 0x40
+		char				pad3[0x4];
 		VecCol				Color;			// 0x50
 		int					LeftPaddign;	// 0x54
 		char				pad4[0x4];
@@ -544,9 +546,8 @@ namespace SkeetSDK {
 		char				pad1[0x8];
 		PXorW				CryptedName;	// 0x38
 		char				pad2[0x4];
-		PCall				CallChunk;		// 0x40
-		PCall				CallChunkEnd;	// 0x44
-		char				pad3[0x8];
+		vector<Call>		Calls;			// 0x40
+		char				pad3[0x4];
 		VecCol				Color;			// 0x50
 		int					LeftPaddign;	// 0x54
 		char				pad4[0x4];
@@ -559,34 +560,30 @@ namespace SkeetSDK {
 	// Multiselect is 0x32C bytes long
 	typedef struct Multiselect : IElement
 	{
-		Header<Child>		Header;
-		Vec2				Pos;				// 0x20
-		Vec2				Size;				// 0x28
-		Vec2				OuterPadding;		// 0x30
-		PXorW				CryptedName;		// 0x38
-		char				pad1[0x4];
-		PCall				CallChunk;			// 0x40
-		PCall				CallChunkEnd;		// 0x44
-		char				pad2[0x8];
-		VecCol				Color;				// 0x50
-		int					LeftPaddign;		// 0x54
-		char				pad3[0x4];
-		int*				Value;				// 0x5C
-		int					heigth;				// 0x60
-		char				pad4[0x4];
-		bool				Popup;				// 0x68
-		bool				Clicked;			// 0x69
-		bool				NotNull;			// 0x6A
-		char				pad5;
-		int					HoveredItem;		// 0x6C
-		char*				StringValue;		// 0x70
-		char*				StringValueEnd;		// 0x74
-		void*				StringValueChunkEnd;// 0x78
-		char				pad6[0x4];
-		BoxVars<char>*		VarsChunk;			// 0x80
-		BoxVars<char>*		VarsChunkEnd;		// 0x84
-		char				pad7[0x8];
-		BoxVars<char>		Vars[];				// 0x90
+		Header<Child>			Header;
+		Vec2					Pos;				// 0x20
+		Vec2					Size;				// 0x28
+		Vec2					OuterPadding;		// 0x30
+		PXorW					CryptedName;		// 0x38
+		char					pad1[0x4];
+		vector<Call>			Calls;				// 0x40
+		char					pad2[0x4];
+		VecCol					Color;				// 0x50
+		int						LeftPaddign;		// 0x54
+		char					pad3[0x4];
+		int*					Value;				// 0x5C
+		int						heigth;				// 0x60
+		char					pad4[0x4];
+		bool					Popup;				// 0x68
+		bool					Clicked;			// 0x69
+		bool					NotNull;			// 0x6A
+		char					pad5;
+		int						HoveredItem;		// 0x6C
+		vector<char>			StringValue;		// 0x70
+		char					pad6[0x4];
+		vector<BoxVars<char>>	Vars;				// 0x80
+		char					pad7[0x4];
+		BoxVars<char>			Varsi[];			// 0x90
 	} *PMultiselect;
 
 	typedef struct
@@ -597,11 +594,10 @@ namespace SkeetSDK {
 
 	struct wchar_set
 	{
-		int			Index;
-		wchar_t*	NameChunk;
-		void*		NameChunkEnd;
-		void*		CapacityEnd;
-		char		pad2[0x4];
+		size_t			Index;
+		vector<wchar_t> Name;
+		char			pad2[0x4];
+		wchar_set(size_t Index, vector<wchar_t> Name) : Index(Index), Name(Name) {};
 	};
 
 	typedef struct HotkeyPopup : IElement
@@ -637,17 +633,15 @@ namespace SkeetSDK {
 		Vec2				DefaultActivateSize;	// 0x30
 		PXorW				CryptedName;			// 0x38
 		char				pad1[0x4];
-		PCall				CallChunk;				// 0x40
-		PCall				CallChunkEnd;			// 0x44
-		char				pad2[0x8];
+		vector<Call>		Calls;					// 0x40
+		char				pad2[0x4];
 		VecCol				Color;					// 0x50
 		int					LeftPaddign;			// 0x54
 		char				pad3[0x4];
 		PHotkeyInfo			Info;					// 0x5C
-		bool				SetingKey;				// 0x60
+		bool				SettingKey;				// 0x60
 		char				pad4;
-		wchar_t				KeyText[0x4];			// 0x62
-		char				pad5[0x2];
+		wchar_t				KeyText[0x5];			// 0x62
 		PHotkeyPop			Popup;					// 0x6C
 	};
 
@@ -660,9 +654,8 @@ namespace SkeetSDK {
 		Vec2				DefSize;			// 0x30
 		PXorW				CryptedName;		// 0x38
 		char				pad1[0x4];
-		PCall				CallChunk;			// 0x40
-		PCall				CallChunkEnd;		// 0x44
-		char				pad2[0x8];
+		vector<Call>		Calls;				// 0x40
+		char				pad2[0x4];
 		VecCol				Color;				// 0x50
 		int					LeftPaddign;		// 0x54
 		char				pad3[0xC];
@@ -696,13 +689,12 @@ namespace SkeetSDK {
 		Vec2				DefSize;		// 0x30
 		PXorW				CryptedName;	// 0x38
 		char				pad1[0x4];
-		PCall				CallChunk;		// 0x40
-		PCall				CallChunkEnd;	// 0x44
-		char				pad2[0x8];
+		vector<Call>		Calls;			// 0x40
+		char				pad2[0x4];
 		VecCol				Color;			// 0x50
 		int					LeftPaddign;	// 0x54
 		char				pad3[0x4];
-		VecCol* Value;			// 0x5C
+		VecCol*				Value;			// 0x5C
 		char				pad4[0x4];
 		ColorPopup			Popup;			// 0x64
 		char				pad5[0x88];
@@ -713,30 +705,28 @@ namespace SkeetSDK {
 	// Combobox is 0xA8 bytes long
 	typedef struct Combobox : IElement
 	{
-		Header<Child>		Header;
-		Vec2				Pos;				// 0x20
-		Vec2				InnerPadding;		// 0x28
-		Vec2				OuterPadding;		// 0x30
-		PXorW				CryptedName;		// 0x38
-		char				pad1[0x4];
-		PCall				CallChunk;			// 0x40
-		PCall				CallChunkEnd;		// 0x44
-		char				pad2[0x8];
-		VecCol				Color;				// 0x50
-		Vec2				BoxPos;				// 0x54
-		int*				Value;				// 0x5C
-		int					Defheigth;			// 0x60
-		int					heigth;				// 0x64
-		int					DefInteractOffset;	// 0x68
-		int					InteractOffset;		// 0x6C
-		bool				Open;				// 0x70
-		bool				Clicked;			// 0x71
-		char				pad3[0x2];
-		int					HoveredItem;		// 0x74
-		int					SelectedItem;		// 0x78
-		BoxVars<wchar_t>*	VarsChunk;			// 0x7C
-		BoxVars<wchar_t>*	VarsChunkEnd;		// 0x80
-		char				pad4[0x24];
+		Header<Child>				Header;
+		Vec2						Pos;				// 0x20
+		Vec2						InnerPadding;		// 0x28
+		Vec2						OuterPadding;		// 0x30
+		PXorW						CryptedName;		// 0x38
+		char						pad1[0x4];
+		vector<Call>				Calls;				// 0x40
+		char						pad2[0x4];
+		VecCol						Color;				// 0x50
+		Vec2						BoxPos;				// 0x54
+		int*						Value;				// 0x5C
+		int							Defheigth;			// 0x60
+		int							heigth;				// 0x64
+		int							DefInteractOffset;	// 0x68
+		int							InteractOffset;		// 0x6C
+		bool						Open;				// 0x70
+		bool						Clicked;			// 0x71
+		char						pad3[0x2];
+		int							HoveredItem;		// 0x74
+		int							SelectedItem;		// 0x78
+		vector<BoxVars<wchar_t>>	Vars;			// 0x7C
+		char						pad4[0x20];
 	} *PCombobox;
 
 	// Label 0x60 bytes long
@@ -748,9 +738,8 @@ namespace SkeetSDK {
 		Vec2				DefOuterPadding;	// 0x30
 		PXorW				CryptedName;		// 0x38
 		char				pad1[0x4];
-		PCall				CallChunk;			// 0x40
-		PCall				CallChunkEnd;		// 0x44
-		char				pad2[0x8];
+		vector<Call>		Calls;				// 0x40
+		char				pad2[0x4];
 		VecCol				Color;				// 0x50
 		int					LeftPaddign;		// 0x54
 		char				pad3[0x8];
@@ -758,12 +747,14 @@ namespace SkeetSDK {
 
 	typedef struct ListboxInfo
 	{
-		char		pad1[0x4];
-		int			SelectedItem;	// 0x88
-		char		pad2[0x4];
-		wchar_set*  ItemsChunk;		// 0x90
-		wchar_set*  ItemsChunkEnd;	// 0x94
-		char		pad3[0x8];
+		char				pad1[0x4];
+		int					SelectedItem;	// 0x88
+		char				pad2[0x4];
+		vector<wchar_set>	Items;
+		//wchar_set*  ItemsChunk;		// 0x90
+		//wchar_set*  ItemsChunkEnd;	// 0x94
+		//wchar_set*  ItemsCapacity;	// 0x98
+		char				pad3[0x4];
 	} ListInfo, *PListInfo;
 
 	typedef struct SSpec
@@ -781,9 +772,8 @@ namespace SkeetSDK {
 		char				pad1[0x8];
 		PXorW				CryptedName;		// 0x38
 		char				pad2[0x4];
-		PCall				CallChunk;			// 0x40
-		PCall				CallChunkEnd;		// 0x44
-		char				pad3[0x8];
+		vector<Call>		Calls;				// 0x40
+		char				pad3[0x4];
 		VecCol				Color;				// 0x50
 		int					LeftPaddign;		// 0x54
 		char				pad4[0x8];
@@ -795,13 +785,9 @@ namespace SkeetSDK {
 		int					SearchPresent;		// 0x7C
 		int					DisplayedCount;		// 0x80
 		ListboxInfo			Info;				// 0x84
-		wchar_t*			SearchChunk;		// 0xA0
-		wchar_t*			SearchChunkEnd;		// 0xA4
-		void*				SearchCapacityEnd;	// 0xA8
+		vector<wchar_t>		Search;				// 0xA0
 		char				pad7[0x4];
-		PSpec				SSpecChunk;			// 0xB0
-		short*				SSpecChunkEnd;		// 0xB4
-		void*				SSpecCapacityEnd;	// 0xB8
+		vector<short>		SSpecs;				// 0xB0
 		char				pad8[0x4];
 	} *PListbox;
 
@@ -814,9 +800,8 @@ namespace SkeetSDK {
 		char				pad1[0x8];
 		PXorW				CryptedName;		// 0x38
 		char				pad2[0x4];
-		PCall				CallChunk;			// 0x40
-		PCall				CallChunkEnd;		// 0x44
-		char				pad3[0x8];
+		vector<Call>		Calls;				// 0x40
+		char				pad3[0x4];
 		VecCol				Color;				// 0x50
 		int					LeftPaddign;		// 0x54
 		char				pad4[0xC];
@@ -826,16 +811,15 @@ namespace SkeetSDK {
 
 	typedef struct Inspector
 	{
-		void**	Vtable;			// 0x00
-		char	pad1[0x15];
-		UiType	Type;			// 0x19
-		char	pad2[0x18];
-		PXorW	crypted;		// 0x38
-		char	pad3[0x4];
-		PCall	CallChunk;		// 0x40
-		PCall	CallChunkEnd;	// 0x44
-		char	pad4[0x14];
-		void*	value;			// 0x5C
+		void**			Vtable;			// 0x00
+		char			pad1[0x15];
+		UiType			Type;			// 0x19
+		char			pad2[0x1E];
+		PXorW			crypted;		// 0x38
+		char			pad3[0x4];
+		vector<Call>	Calls;			// 0x40
+		char			pad4[0x10];
+		void*			value;			// 0x5C
 	} *PInspector;
 
 	typedef struct CWidg
@@ -868,18 +852,15 @@ namespace SkeetSDK {
 		Vec2				DefSize;			// 0x30
 		PXorW				CryptedName;		// 0x38
 		PUnkn				Unknown;			// 0x3C
-		PCall				CallChunk;			// 0x40
-		PCall				CallChunkEnd;		// 0x44
-		char				pad1[0x8];
+		vector<Call>		Calls;				// 0x40
+		char				pad1[0x4];
 		VecCol				Color;				// 0x50
 		char				pad2[0x14];
 		Vec2				Padding;			// 0x68
 		Vec4_8t				PosSize;			// 0x70 block = minimum size child can be resized/moved by, x = blocks moved by X, y = blocks sized by X, z = blocks moved by Y, w = blocks sized by Y
 		Vec2				MouseLastPos;		// 0x74
 		ChildStatus			Status;				// 0x7C
-		PElements			ElementsChunk;		// 0x80
-		PElements			ElementsChunkEnd;	// 0x84
-		void*				ElementsCapacityEnd;// 0x88
+		vector<PElement>	Elements;			// 0x80
 		char				pad3[0x4];
 		PCWidg				PWidgets;			// 0x90
 		char				pad4[0x4];
@@ -896,13 +877,12 @@ namespace SkeetSDK {
 
 	typedef struct
 	{
-		char			pad4[0x8];
+		char			pad4[0x4];
 		int				TextureId;		// 0x80
 		int				TextureOffset;	// 0x84
 		char			pad5[0x4];
 		Vec2			Size;			// 0x8C
 	} TabIcon;
-
 
 	class ITab
 	{
@@ -924,25 +904,25 @@ namespace SkeetSDK {
 	public:
 		virtual void ResetLayout();
 	};
+
 	struct CTab : public ITab
 	{
-		Header<void>		Header;
-		Vec2				Pos;			// 0x20
-		Vec2				Size;			// 0x28
-		Vec2				DefSize;		// 0x30
-		PXorW				CryptedName;	// 0x38
-		char				pad1[0x14];
-		VecCol				Color;			// 0x50
-		char				pad2[0xC];
-		PCMenu				Menu;			// 0x60
-		char				pad3[0xC];
-		PChilds				ChildsChunk;	// 0x70
-		PChilds				ChildsChunkEnd;	// 0x74
-		TabIcon				Icon;			// 0x78
-		int					Padding;		// 0x94
-		void*				Chunk;			// 0x98
-		void*				ChunkEnd;		// 0x9C
-		PElement			CEs[0x20];		// 0xA0	childs and some elems lets say it will be 0x20 size for our allocation purposes
+		Header<void>	Header;
+		Vec2			Pos;			// 0x20
+		Vec2			Size;			// 0x28
+		Vec2			DefSize;		// 0x30
+		PXorW			CryptedName;	// 0x38
+		char			pad1[0x14];
+		VecCol			Color;			// 0x50
+		char			pad2[0xC];
+		PCMenu			Menu;			// 0x60
+		char			pad3[0xC];
+		vector<PChild>	Childs;			// 0x70
+		TabIcon			Icon;			// 0x78
+		int				Padding;		// 0x94
+		void*			Chunk;			// 0x98
+		void*			ChunkEnd;		// 0x9C
+		PElement		CEs[0x20];		// 0xA0	childs and some elems lets say it will be 0x20 size for our allocation purposes
 	};
 
 	//0x20 Struct for lua listbox chunk in Config tab
@@ -968,9 +948,7 @@ namespace SkeetSDK {
 		MenuStatus		MenuStatus;			// 0x34
 		MouseInfo		Mouse;				// 0x38
 		char			pad2[0x8];
-		PCTabs			TabsChunk;			// 0x54
-		PCTabs			TabsChunkEnd;		// 0x58
-		void*			TabsCapacityEnd;	// 0x5C
+		vector<PCTab>	Tabs;				// 0x54
 		char			pad3[0x4];
 		Tab				CurrentTab;			// 0x64
 		char			pad4[0x20];
@@ -981,7 +959,7 @@ namespace SkeetSDK {
 		int				SomeInt;			// 0x98
 		char			pad6[0x14];
 		float			MenuAlpha;			// 0xB0
-		PCTab			Tabs[9];			// 0xB4
+		PCTab			TabsArr[9];			// 0xB4
 		char			pad7[0x4];
 		int				BackgroundTextureId;// 0xDC
 
@@ -1191,7 +1169,6 @@ namespace SkeetSDK {
 		static VecCol		GetMenuCol();
 		static void			SetInput(PElement elemen, bool val);
 		static void*		TieValue(PElement element, void* ptr);
-		static size_t		GetCallbacksCount(PElement elem);
 		static void			SetCallback(PElement elem, F2PFn func, void* ecx = NULL);
 		static void			DeleteElement(PElement element);
 		static void			SetCheckbox(PCheckbox checkbox, int value);
@@ -1244,6 +1221,7 @@ namespace SkeetSDK {
 		int id;
 		TextureType type;
 		Vec2 Size;
+		CTexture() = default;
 		CTexture(int id, TextureType type, int width, int heigth) : id(id), type(type), Size(width, heigth) {};
 	};
 
@@ -1289,10 +1267,10 @@ namespace SkeetSDK {
 		static void __vectorcall Circle(Vec2 pos, VecCol color, float radius, float rotation = 0.f, float percentage = 1.f);
 		static void __vectorcall CircleOut(Vec2 pos, VecCol color, float radius, float rotation = 0.f, float percentage = 1.f, float thickness = 1.f);
 		static void Texture(int id, Vec2 pos, Vec2 size, VecCol color, int flag, int offset = 0, float scale = 1.f);
-		static CTexture* LoadSVGTextureFromFile(const char* filename, int width = 0, int heigth = 0);
-		static FORCECALL CTexture* LoadPNGTextureFromFile(const char* filename, int width = 0, int heigth = 0);
-		static FORCECALL CTexture* LoadJPGTextureFromFile(const char* filename, int width = 0, int heigth = 0);
-		static FORCECALL CTexture* LoadTextureFromMemory(const unsigned char* data, size_t size, TextureType type, int width, int heigth);
+		static void LoadSVGTextureFromFile(CTexture& texture, const char* filename, int width = 0, int heigth = 0);
+		static FORCECALL void LoadPNGTextureFromFile(CTexture& texture, const char* filename);
+		static FORCECALL void LoadJPGTextureFromFile(CTexture& texture, const char* filename);
+		static FORCECALL void LoadTextureFromMemory(CTexture& texture, const unsigned char* data, size_t size, TextureType type, int width, int heigth);
 	};
 
 #if defined(SDK_GLOBALS_IMP) || defined(SDK_CLIENT_IMP)
@@ -1568,17 +1546,17 @@ namespace SkeetSDK
 
 	unsigned int Utils::ChildsCount(PCTab tab)
 	{
-		return tab->ChildsChunkEnd - tab->ChildsChunk;
+		return tab->Childs.size();
 	};
 
 	unsigned int Utils::ElementsCount(PChild child)
 	{
-		return child->ElementsChunkEnd - child->ElementsChunk;
+		return child->Elements.size();
 	};
 
 	void Utils::InitConfig()
 	{
-		InitTab(Menu->TabsChunk[Config]);
+		InitTab(Menu->Tabs[CONFIG]);
 	};
 
 	PCLua Utils::GetLuaInfo()
@@ -1589,8 +1567,8 @@ namespace SkeetSDK
 	void Utils::LoadCfg(int index)
 	{
 		if (index >= 0)
-			UI::SetListbox(Menu->TabsChunk[Config]->ChildsChunk[0]->ElementsChunk[0]->GetAs<Listbox>(), index);
-		Callback(Menu->TabsChunk[Config]->ChildsChunk[0]->ElementsChunk[3]);
+			UI::SetListbox(Menu->Tabs[CONFIG]->Childs[0]->Elements[0]->GetAs<Listbox>(), index);
+		Callback(Menu->Tabs[CONFIG]->Childs[0]->Elements[3]);
 	};
 
 	void Utils::LoadCfg(const char* cfgname)
@@ -1604,36 +1582,34 @@ namespace SkeetSDK
 	const wchar_t* Utils::CurrentConfig()
 	{
 		if (!*HashedCfgName) return L"Default";
-		PListbox ptr = Menu->TabsChunk[Config]->ChildsChunk[0]->ElementsChunk[0]->GetAs<Listbox>();
-		size_t count = ptr->Info.ItemsChunkEnd - ptr->Info.ItemsChunk;
-		for (size_t i = 0; i < count; i++)
+		PListbox ptr = Menu->Tabs[CONFIG]->Childs[0]->Elements[0]->GetAs<Listbox>();
+		for (size_t i = 0; i < ptr->Info.Items.size(); i++)
 		{
-			if (Hash(ptr->Info.ItemsChunk[i].NameChunk) == *HashedCfgName)
-				return ptr->Info.ItemsChunk[i].NameChunk;
+			if (Hash(ptr->Info.Items[i].Name.data()) == *HashedCfgName)
+				return ptr->Info.Items[i].Name.data();
 		}
 	};
 
 	int Utils::CurrentConfigIndex()
 	{
 		if (!*HashedCfgName) return -1;
-		PListbox ptr = Menu->TabsChunk[Config]->ChildsChunk[0]->ElementsChunk[0]->GetAs<Listbox>();
-		size_t count = ptr->Info.ItemsChunkEnd - ptr->Info.ItemsChunk;
-		for (size_t i = 0; i < count; i++)
+		PListbox ptr = Menu->Tabs[CONFIG]->Childs[0]->Elements[0]->GetAs<Listbox>();
+		for (size_t i = 0; i < ptr->Info.Items.size(); i++)
 		{
-			if (Hash(ptr->Info.ItemsChunk[i].NameChunk) == *HashedCfgName)
+			if (Hash(ptr->Info.Items[i].Name.data()) == *HashedCfgName)
 				return i;
 		}
 	};
 
 	int Utils::LuaCount()
 	{
-		return ((int)Menu->TabsChunk[Config]->ChunkEnd - (int)Menu->TabsChunk[Config]->Chunk) / sizeof(LuaChunk);
+		return ((int)Menu->Tabs[CONFIG]->ChunkEnd - (int)Menu->Tabs[CONFIG]->Chunk) / sizeof(LuaChunk);
 	};
 
 	wchar_t* Utils::LuaName(int index)
 	{
 		if (index >= LuaCount()) return NULL;
-		return Menu->TabsChunk[Config]->ChildsChunk[1]->ElementsChunk[3]->GetAs<Listbox>()->Info.ItemsChunk[index].NameChunk;
+		return Menu->Tabs[CONFIG]->Childs[1]->Elements[3]->GetAs<Listbox>()->Info.Items[index].Name.data();
 	};
 
 
@@ -1641,17 +1617,17 @@ namespace SkeetSDK
 	{
 		wchar_t* name = LuaName(index);
 		if (name == NULL) return false;
-		return LoadLua(name, Memory::GetChunkAs<LuaChunk*>(UI::GetTab(Config)));
+		return LoadLua(name, Memory::GetChunkAs<LuaChunk*>(UI::GetTab(CONFIG)));
 	};
 
 	bool Utils::LoadScript(wchar_t* name)
 	{
-		return LoadLua(name, Memory::GetChunkAs<LuaChunk*>(UI::GetTab(Config)));
+		return LoadLua(name, Memory::GetChunkAs<LuaChunk*>(UI::GetTab(CONFIG)));
 	};
 
 	void Utils::AllowUnsafe(int value)
 	{
-		UI::SetCheckbox(Menu->TabsChunk[Config]->ChildsChunk[1]->ElementsChunk[1]->GetAs<Checkbox>(), value);
+		UI::SetCheckbox(Menu->Tabs[CONFIG]->Childs[1]->Elements[1]->GetAs<Checkbox>(), value);
 	};
 
 	PXorW Utils::CryptName(wchar_t* name)
@@ -1672,10 +1648,9 @@ namespace SkeetSDK
 
 	void Utils::ForEach(PChild child, void(*func)(PElement), UiType T)
 	{
-		size_t count = ElementsCount(child);
-		for (size_t i = 0; i < count; i++)
+		
+		for (auto& element : child->Elements)
 		{
-			PElement element = child->ElementsChunk[i];
 			if (T == UiNone || element->GetAs<Header<void>>()->Type == T)
 			{
 				func(element);
@@ -1713,8 +1688,8 @@ namespace SkeetSDK
 
 	void UI::ResetLayout()
 	{
-		Button* b = (Button*)GetByName(GetChild(Misc, 2), L"Reset menu layout");
-		b->CallChunk->function(Menu, b);
+		Button* b = (Button*)GetByName(GetChild(MISC, 2), L"Reset menu layout");
+		b->Calls[0].function(Menu, b);
 	};
 
 	void UI::SetTab(Tab tab)
@@ -1724,7 +1699,7 @@ namespace SkeetSDK
 
 	PCTab UI::GetTab(Tab tab)
 	{
-		return Menu->TabsChunk[tab];
+		return Menu->Tabs[tab];
 	};
 
 	Tab UI::GetActiveTab()
@@ -1734,7 +1709,7 @@ namespace SkeetSDK
 
 	PCTab UI::GetActiveCTab()
 	{
-		return Menu->TabsChunk[Menu->CurrentTab];
+		return Menu->Tabs[Menu->CurrentTab];
 	}
 
 	void UI::SetVisible(PElement element, bool value)
@@ -1744,7 +1719,7 @@ namespace SkeetSDK
 
 	VecCol UI::GetMenuCol()
 	{
-		return GetChild(Misc, 2)->ElementsChunk[3]->GetAs<CPicker>()->Value[0];
+		return GetChild(MISC, 2)->Elements[3]->GetAs<CPicker>()->Value[0];
 	};
 
 	void UI::SetInput(PElement elemen, bool val)
@@ -1761,23 +1736,14 @@ namespace SkeetSDK
 		return oldptr;
 	};
 
-	size_t UI::GetCallbacksCount(PElement elem)
-	{
-		return elem->GetAs<Inspector>()->CallChunkEnd - elem->GetAs<Inspector>()->CallChunk;;
-	};
-
 	void UI::SetCallback(PElement elem, F2PFn func, void* ecx)
 	{
-		size_t index = GetCallbacksCount(elem);
 		PInspector ptr = elem->GetAs<Inspector>();
-		if (!index)
+		if (ptr->Calls.empty())
 		{
-			ptr->CallChunk = (PCall)Memory::Allocator(sizeof(Call) * 10);
-			ptr->CallChunkEnd = ptr->CallChunk;
-		}
-		ptr->CallChunk[index].ecx = ecx;
-		ptr->CallChunk[index].function = func;
-		ptr->CallChunkEnd++;
+			ptr->Calls.reserve(4);
+		};
+		ptr->Calls.emplace_back(ecx, func);
 	}
 
 	void UI::DeleteElement(PElement element)
@@ -1858,13 +1824,11 @@ namespace SkeetSDK
 
 	PElement UI::GetByName(PChild child, const wchar_t* name)
 	{
-		Element** elements = child->ElementsChunk;
-		while (*elements)
+		for (auto& element : child->Elements)
 		{
-			wchar_t* elementName = GetName(*elements);
+			wchar_t* elementName = GetName(element);
 			if (wcscmp(elementName, name) == 0)
-				return *elements;
-			elements++;
+				return element;
 		}
 		return NULL;
 	};
@@ -1873,7 +1837,7 @@ namespace SkeetSDK
 	{
 		PCTab tabPtr = GetTab(tab);
 		if (index < 0 || index >= Utils::ChildsCount(tabPtr)) return NULL;
-		return tabPtr->ChildsChunk[index];
+		return tabPtr->Childs[index];
 	};
 
 	void UI::InsertElement(PChild child, void* element)
@@ -1953,18 +1917,11 @@ namespace SkeetSDK
 	{
 		PCombobox ptr = (PCombobox)Memory::Allocator(sizeof(Combobox));
 		ComboboxCon(ptr, child, name, value, sameline);
-		BoxVars<wchar_t>* varlist = (BoxVars<wchar_t>*)Memory::Allocator(sizeof(BoxVars<wchar_t>) * arrsize);
 		for (size_t i = 0; i < arrsize; i++)
 		{
-			size_t bsize = sizeof(wchar_t) * (wcslen(arr[i]) + 1);
-			varlist[i].NameChunk = (wchar_t*)Memory::Allocator(bsize);
-			memcpy(varlist[i].NameChunk, arr[i], bsize);
-			varlist[i].NameChunkEnd = varlist[i].NameChunk + ++bsize / sizeof(wchar_t);
-			varlist[i].CpacityEnd = varlist[i].NameChunkEnd;
-			varlist[i].Index = i;
+			ptr->Vars[i].Name.assign(arr[i], arr[i] + wcslen(arr[i]) + 1);
+			ptr->Vars[i].Index = i;
 		}
-		ptr->VarsChunk = varlist;
-		ptr->VarsChunkEnd = varlist + arrsize;
 		InsertElement(child, ptr);
 		return ptr;
 	};
@@ -1973,18 +1930,11 @@ namespace SkeetSDK
 	{
 		PMultiselect ptr = (PMultiselect)Memory::Allocator(sizeof(Multiselect));
 		MultiCon(ptr, child, name, value, 0, sameline);
-		auto varlist = ptr->Vars;
 		for (size_t i = 0; i < arrsize; i++)
 		{
-			size_t bsize = strlen(arr[i]);
-			varlist[i].NameChunk = (char*)Memory::Allocator(bsize);
-			memcpy(varlist[i].NameChunk, arr[i], bsize);
-			varlist[i].NameChunkEnd = varlist[i].NameChunk + bsize;
-			varlist[i].CpacityEnd = varlist[i].NameChunkEnd;
-			varlist[i].Index = 1 << i;
+			ptr->Vars[i].Name.assign(arr[i], arr[i] + strlen(arr[i]) + 1);
+			ptr->Vars[i].Index = 1 << i;
 		}
-		ptr->VarsChunk = varlist;
-		ptr->VarsChunkEnd = varlist + arrsize;
 		InsertElement(child, ptr);
 		return ptr;
 	};
@@ -1994,25 +1944,15 @@ namespace SkeetSDK
 		PListbox ptr = (PListbox)Memory::Allocator(sizeof(Listbox));
 		ListboxCon(ptr, child, name, 158, 300, value, searchbox);
 
-		wchar_set* set = (wchar_set*)Memory::Allocator(sizeof(wchar_set) * arrsize);
-		PSpec spec = (PSpec)Memory::Allocator(sizeof(short) * (arrsize + 1));
-		for (size_t i = 0; i < arrsize; i++)
+		ptr->Info.Items.reserve(arrsize);
+		ptr->SSpecs.reserve(arrsize);
+		ptr->SSpecs.push_back(0);
+		for (size_t i = 0; i < arrsize;)
 		{
-			size_t bsize = (wcslen(arr[i]) + 1) * sizeof(wchar_t);
-			set[i].Index = i;
-			set[i].NameChunk = (wchar_t*)Memory::Allocator(bsize);
-			memcpy(set[i].NameChunk, arr[i], bsize);
-			set[i].NameChunkEnd = (void*)((int)set[i].NameChunk + bsize);
-			set[i].CapacityEnd = set[i].NameChunkEnd;
-			spec->Indexies[i] = i + 1;
+			ptr->Info.Items.emplace_back(i++, vector<wchar_t>(arr[i], arr[i] + wcslen(arr[i]) + 1));
+			ptr->SSpecs.push_back(i);
 		}
-		spec->FindedIndex = 0;
-		ptr->Info.ItemsChunk = set;
-		ptr->Info.ItemsChunkEnd = set + arrsize;
 		ptr->ItemsCount = arrsize;
-		ptr->SSpecChunk = spec;
-		ptr->SSpecChunkEnd = (short*)((int)spec + sizeof(short) * (arrsize + 1));
-		ptr->SSpecCapacityEnd = ptr->SSpecChunkEnd;
 		InsertElement(child, ptr);
 		return ptr;
 	};
@@ -2021,34 +1961,26 @@ namespace SkeetSDK
 	{
 		if (!list->ItemsCount)
 		{
-			list->Info.ItemsChunk = (wchar_set*)Memory::Allocator(sizeof(wchar_set) * 255);
-			list->Info.ItemsChunkEnd = list->Info.ItemsChunk;
-			list->SSpecChunk = (PSpec)Memory::Allocator(sizeof(short) * 256);
-			list->SSpecChunkEnd = (short*)((int)list->SSpecChunk + sizeof(short));
+			list->Info.Items.reserve(40);
+			list->SSpecs.reserve(40);
 		};
-		if (!bsize) bsize = (wcslen(elem) + 1) * sizeof(wchar_t);
-		list->Info.ItemsChunk[list->ItemsCount].Index = list->ItemsCount;
-		list->Info.ItemsChunk[list->ItemsCount].NameChunk = (wchar_t*)Memory::Allocator(bsize);
-		memcpy(list->Info.ItemsChunk[list->ItemsCount].NameChunk, elem, bsize);
-		list->Info.ItemsChunk[list->ItemsCount].NameChunkEnd = (void*)((int)list->Info.ItemsChunk[list->ItemsCount].NameChunk + bsize);
-		list->Info.ItemsChunk[list->ItemsCount].CapacityEnd = list->Info.ItemsChunk[list->ItemsCount].NameChunkEnd;
-		list->Info.ItemsChunkEnd++;
-		list->SSpecChunk->Indexies[list->ItemsCount] = list->ItemsCount + 1;
-		list->SSpecChunkEnd++;
-		list->Info.SelectedItem = list->ItemsCount++;
+		list->Info.Items.emplace_back(list->ItemsCount, vector<wchar_t>(elem, elem + wcslen(elem) + 1));
+		list->Info.SelectedItem = list->ItemsCount;
+		list->SSpecs.push_back(++list->ItemsCount);
 	};
 
 	void UI::RemoveListboxVar(PListbox list, size_t index)
 	{
-		if (!list->ItemsCount) return;
-		list->SSpecChunkEnd--;
+		if (!list->ItemsCount || index >= list->ItemsCount) return;
+		list->SSpecs.resize(list->SSpecs.size() - 1);
+		list->Info.Items.erase(std::next(list->Info.Items.begin(), index));
+		list->Info.SelectedItem = --list->ItemsCount - 1;
+
 		for (size_t i = index; i < list->ItemsCount; i++)
 		{
-			list->Info.ItemsChunk[i].Index--;
+			list->Info.Items[i].Index--;
 		};
-		memcpy(list->Info.ItemsChunk + index, list->Info.ItemsChunk + index + 1, (list->ItemsCount-- - index) * sizeof(wchar_set));
-		list->Info.ItemsChunkEnd--;
-		list->Info.SelectedItem = list->ItemsCount - 1;
+
 	};
 
 	void UI::InsertChild(PCTab tab, void* child)
@@ -2076,7 +2008,7 @@ namespace SkeetSDK
 	template <typename T>
 	T* UI::GetElement(PChild child, size_t index)
 	{
-		return (T*)child->ElementsChunk[index];
+		return child->Elements[index]->GetAs<T>();
 	};
 
 #ifdef SDK_RENDERER_IMP
@@ -2269,19 +2201,24 @@ namespace SkeetSDK
 		SCLASS->IRenderer->Texture(id, pos.x, pos.y, color.pack(), offset, 0, size.x, size.y, flag, scale);
 	};
 
-	CTexture* Renderer::LoadSVGTextureFromFile(const char* filename, int width, int heigth)
+	void Renderer::LoadSVGTextureFromFile(CTexture& texture, const char* filename, int width, int heigth)
 	{
 		int id = LoadSvgFromFile(filename, width, heigth, -1);
-		if (id < 0) return NULL;
-		return new CTexture(id, TEXTURE_SVG, width, heigth);
+		if (id > 0)
+		{
+			texture.type = TEXTURE_SVG;
+			texture.id = id;
+			texture.Size = { width, heigth };
+		};
 	};
 
-	CTexture* Renderer::LoadPNGTextureFromFile(const char* filename, int width, int heigth)
+	void Renderer::LoadPNGTextureFromFile(CTexture& texture, const char* filename)
 	{
 		DataChunk textureChunk{ 0 };
 		DataChunk rawContent{ 0 };
+		int width, heigth;
 		ExReadFile(&textureChunk, filename);
-		if (textureChunk.ChunkStart == textureChunk.ChunkEnd) return NULL;
+		if (textureChunk.ChunkStart == textureChunk.ChunkEnd) return;
 		if (Renderer::LoadTexture(TEXTURE_PNG, textureChunk.ChunkStart, textureChunk.ChunkEnd - textureChunk.ChunkStart, &width, &heigth, &rawContent))
 		{
 			int byteSize = (rawContent.ChunkEnd - rawContent.ChunkStart) >> 2;
@@ -2291,18 +2228,22 @@ namespace SkeetSDK
 					ptr[i] = _rotr(_byteswap_ulong(ptr[i]), 8);
 			}
 			int id = SCLASS->IRenderer->AddTexture(rawContent.ChunkStart, width, heigth, width * heigth * 4, 0, 0);
-			if (id < 0) return NULL;
-			return new CTexture(id, TEXTURE_PNG, width, heigth);
+			if (id > 0)
+			{
+				texture.type = TEXTURE_PNG;
+				texture.id = id;
+				texture.Size = { width, heigth };
+			}
 		}
-		return NULL;
 	};
 
-	CTexture* Renderer::LoadJPGTextureFromFile(const char* filename, int width, int heigth)
+	void Renderer::LoadJPGTextureFromFile(CTexture& texture, const char* filename)
 	{
 		DataChunk textureChunk{ 0 };
 		DataChunk rawContent{ 0 };
+		int width, heigth;
 		ExReadFile(&textureChunk, filename);
-		if (textureChunk.ChunkStart == textureChunk.ChunkEnd) return NULL;
+		if (textureChunk.ChunkStart == textureChunk.ChunkEnd) return;
 		if (Renderer::LoadTexture(TEXTURE_JPG, textureChunk.ChunkStart, textureChunk.ChunkEnd - textureChunk.ChunkStart, &width, &heigth, &rawContent))
 		{
 			int byteSize = (rawContent.ChunkEnd - rawContent.ChunkStart) >> 2;
@@ -2312,37 +2253,43 @@ namespace SkeetSDK
 					ptr[i] = _rotr(_byteswap_ulong(ptr[i]), 8);
 			}
 			int id = SCLASS->IRenderer->AddTexture(rawContent.ChunkStart, width, heigth, width * heigth * 4, 0, 0);
-			if (id < 0) return NULL;
-			return new CTexture(id, TEXTURE_JPG, width, heigth);
+			if (id > 0)
+			{
+				texture.type = TEXTURE_JPG;
+				texture.id = id;
+				texture.Size = { width, heigth };
+			}
 		}
-		return NULL;
 	};
 
-	CTexture* Renderer::LoadTextureFromMemory(const unsigned char* data, size_t size, TextureType type, int width, int heigth)
+	void Renderer::LoadTextureFromMemory(CTexture& texture, const unsigned char* data, size_t size, TextureType type, int width, int heigth)
 	{
-		if (size == 0) return NULL;
+		if (size == 0) return;
 		int byteSize;
 		DataChunk rawContent{ 0 };
 		if (type == TEXTURE_RGBA)
 		{
-			if (width * heigth * 4 != size) return NULL;
+			if (width * heigth * 4 != size) return;
 			rawContent.ChunkStart = const_cast<unsigned char*>(data);
 			byteSize = width * heigth;
 		}
 		else
 		{
-			if (!Renderer::LoadTexture(type, data, size, &width, &heigth, &rawContent))
-				return NULL;
+			if (!Renderer::LoadTexture(type, data, size, &width, &heigth, &rawContent)) return;
 			byteSize = (rawContent.ChunkEnd - rawContent.ChunkStart) >> 2;
 		}
 
-		if (byteSize == 0) return NULL;
+		if (byteSize == 0) return;
 		unsigned int* ptr = (unsigned int*)rawContent.ChunkStart;
 		for (int i = 0; i < byteSize; ++i)
 			ptr[i] = _rotr(_byteswap_ulong(ptr[i]), 8);
 		int id = SCLASS->IRenderer->AddTexture(rawContent.ChunkStart, width, heigth, width * heigth * 4, 0, 0);
-		if (id < 0) return NULL;
-		return new CTexture(id, type, width, heigth);
+		if (id > 0)
+		{
+			texture.type = type;
+			texture.id = id;
+			texture.Size = { width, heigth };
+		}
 	};
 #endif // SDK_RENDERER_IMP
 #if defined(SDK_GLOBALS_IMP) || defined(SDK_CLIENT_IMP)
