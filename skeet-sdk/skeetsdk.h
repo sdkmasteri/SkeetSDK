@@ -1,10 +1,10 @@
 #ifndef SKEET_H
 #define SKEET_H
+#define NOMINMAX
 #include <Windows.h>
 #include <psapi.h>
 #include <vector>
-
-using std::vector;
+// "8B 41 08 2B 01 83 F8" freeing allocated mem
 
 #if defined(__GNUC__) || defined(__GNUG__)
 #define FORCECALL __attribute__((noinline))
@@ -297,7 +297,7 @@ namespace SkeetSDK {
 			return (this->x | this->y << 8 | this->z << 16 | this->w << 24);
 		};
 	};
-
+	
 	template<typename T>
 	class sVec
 	{
@@ -447,6 +447,105 @@ namespace SkeetSDK {
 
 	};
 
+	namespace Memory {
+
+		class SigFinder
+		{
+			MODULEINFO info;
+			static sVec<int> ida_sig_resolver(const char* sig);
+		public:
+			SigFinder(const char* module);
+			SigFinder(LPVOID lpBaseAdress, DWORD SizeOfImage);
+			FORCECALL void* find(const char* sig, int offset = 0);
+			FORCECALL void* findr32(const char* sig);
+		};
+
+		class CHooked
+		{
+			bool Status;
+			void* Address;
+			unsigned char* OriginalBytes;
+			size_t BytesSize;
+			void* naked;
+		public:
+			CHooked(void* func, unsigned char* ogbytes, size_t size);
+			~CHooked();
+			void* Naked();
+			void Unhook();
+		};
+
+		class DetourHook
+		{
+			static sVec<CHooked*> Hooked;
+		public:
+			static CHooked* Hook(void* Dst, void* Src, size_t size = 5);
+			static void UnhookAll();
+		};
+		static SigFinder	CheatChunk((LPVOID)0x43310000, 0x2FC000u);
+		static AllocatorFn	Allocator = (AllocatorFn)CheatChunk.find("56 8B F1 33 C0 85");
+		static ThisFn		Deallocator = (ThisFn)CheatChunk.find("8B 41 08 2B 01 83 F8"); // its vector deallocator, verifies vec and calls raw deallocator
+		static ThisFn		_RawDealloc = (ThisFn)CheatChunk.find("85 C9 74 17 8D 41 F0 2B 40 08 50 64 A1 30 00 00 00 6A 00 FF 70 18 E8 ?? ?? ?? ?? C3"); // its raw deallocator
+
+		template<typename T>
+		class SkeetAllocator
+		{
+		public:
+			using value_type = T;
+			using pointer = T*;
+			using const_pointer = const T*;
+			using reference = T&;
+			using const_reference = const T&;
+			using size_type = std::size_t;
+			using difference_type = std::ptrdiff_t;
+
+			template<typename U>
+			struct rebind {
+				using other = SkeetAllocator<U>;
+			};
+
+			SkeetAllocator() = default;
+
+			template <class U>
+			SkeetAllocator(const SkeetAllocator<U>&) noexcept {};
+
+			SkeetAllocator(const SkeetAllocator&) = default;
+
+			SkeetAllocator& operator=(const SkeetAllocator&) = default;
+
+			pointer address(reference value) const { return &value; };
+
+			pointer allocate(size_type n)
+			{
+				if (auto ptr = static_cast<pointer>(Allocator(n * sizeof(value_type))))
+					return ptr;
+				throw std::bad_alloc();
+			};
+
+			void deallocate(pointer ptr, size_type) noexcept
+			{
+				if (ptr)
+					_RawDealloc(ptr);
+			};
+
+			template<typename U, typename... Args>
+			void construct(U* ptr, Args&&... args) { new(ptr) U(std::forward<Args>(args)...); };
+
+			template<typename U>
+			void destroy(U* ptr) { ptr->~U(); };
+
+			size_type max_size() const noexcept { return std::numeric_limits<size_type>::max() / sizeof(value_type); };
+		};
+
+		template <typename T, typename U>
+		bool operator==(const SkeetAllocator<T>&, const SkeetAllocator<U>&) noexcept { return true; }
+
+		template <typename T, typename U>
+		bool operator!=(const SkeetAllocator<T>&, const SkeetAllocator<U>&) noexcept { return false; }
+	}
+	// vector alias
+	template<typename _Ty>
+	using skeetvec = std::vector<_Ty, Memory::SkeetAllocator<_Ty>>;
+
 //structs class
 #pragma pack(push, 1)
 	typedef struct Child* PChild;
@@ -481,14 +580,14 @@ namespace SkeetSDK {
 	{
 		void*	ecx;
 		F2PFn	function;	// function(ecx, elementptr)
-		Call() = default;
+		Call() {};
 		Call(void* ecx, F2PFn function) : ecx(ecx), function(function) {};
 	};
 
 	template <typename T>
 	struct BoxVars
 	{
-		vector<T>	Name;
+		skeetvec<T>	Name;
 		char		pad1[0x4];
 		int			Index;
 	};
@@ -520,7 +619,7 @@ namespace SkeetSDK {
 		char				pad1[0x8];
 		PXorW				CryptedName;	// 0x38
 		char				pad2[0x4];
-		vector<Call>		Calls;			// 0x40
+		skeetvec<Call>		Calls;			// 0x40
 		char				pad3[0x4];
 		VecCol				Color;			// 0x50
 		int					LeftPaddign;	// 0x54
@@ -546,7 +645,7 @@ namespace SkeetSDK {
 		char				pad1[0x8];
 		PXorW				CryptedName;	// 0x38
 		char				pad2[0x4];
-		vector<Call>		Calls;			// 0x40
+		skeetvec<Call>		Calls;			// 0x40
 		char				pad3[0x4];
 		VecCol				Color;			// 0x50
 		int					LeftPaddign;	// 0x54
@@ -566,7 +665,7 @@ namespace SkeetSDK {
 		Vec2					OuterPadding;		// 0x30
 		PXorW					CryptedName;		// 0x38
 		char					pad1[0x4];
-		vector<Call>			Calls;				// 0x40
+		skeetvec<Call>			Calls;				// 0x40
 		char					pad2[0x4];
 		VecCol					Color;				// 0x50
 		int						LeftPaddign;		// 0x54
@@ -579,9 +678,9 @@ namespace SkeetSDK {
 		bool					NotNull;			// 0x6A
 		char					pad5;
 		int						HoveredItem;		// 0x6C
-		vector<char>			StringValue;		// 0x70
+		skeetvec<char>			StringValue;		// 0x70
 		char					pad6[0x4];
-		vector<BoxVars<char>>	Vars;				// 0x80
+		skeetvec<BoxVars<char>>	Vars;				// 0x80
 		char					pad7[0x4];
 		BoxVars<char>			Varsi[];			// 0x90
 	} *PMultiselect;
@@ -595,9 +694,9 @@ namespace SkeetSDK {
 	struct wchar_set
 	{
 		size_t			Index;
-		vector<wchar_t> Name;
+		skeetvec<wchar_t> Name;
 		char			pad2[0x4];
-		wchar_set(size_t Index, vector<wchar_t> Name) : Index(Index), Name(Name) {};
+		wchar_set(size_t Index, skeetvec<wchar_t> Name) : Index(Index), Name(Name) {};
 	};
 
 	typedef struct HotkeyPopup : IElement
@@ -633,7 +732,7 @@ namespace SkeetSDK {
 		Vec2				DefaultActivateSize;	// 0x30
 		PXorW				CryptedName;			// 0x38
 		char				pad1[0x4];
-		vector<Call>		Calls;					// 0x40
+		skeetvec<Call>		Calls;					// 0x40
 		char				pad2[0x4];
 		VecCol				Color;					// 0x50
 		int					LeftPaddign;			// 0x54
@@ -654,7 +753,7 @@ namespace SkeetSDK {
 		Vec2				DefSize;			// 0x30
 		PXorW				CryptedName;		// 0x38
 		char				pad1[0x4];
-		vector<Call>		Calls;				// 0x40
+		skeetvec<Call>		Calls;				// 0x40
 		char				pad2[0x4];
 		VecCol				Color;				// 0x50
 		int					LeftPaddign;		// 0x54
@@ -689,7 +788,7 @@ namespace SkeetSDK {
 		Vec2				DefSize;		// 0x30
 		PXorW				CryptedName;	// 0x38
 		char				pad1[0x4];
-		vector<Call>		Calls;			// 0x40
+		skeetvec<Call>		Calls;			// 0x40
 		char				pad2[0x4];
 		VecCol				Color;			// 0x50
 		int					LeftPaddign;	// 0x54
@@ -711,7 +810,7 @@ namespace SkeetSDK {
 		Vec2						OuterPadding;		// 0x30
 		PXorW						CryptedName;		// 0x38
 		char						pad1[0x4];
-		vector<Call>				Calls;				// 0x40
+		skeetvec<Call>				Calls;				// 0x40
 		char						pad2[0x4];
 		VecCol						Color;				// 0x50
 		Vec2						BoxPos;				// 0x54
@@ -725,7 +824,7 @@ namespace SkeetSDK {
 		char						pad3[0x2];
 		int							HoveredItem;		// 0x74
 		int							SelectedItem;		// 0x78
-		vector<BoxVars<wchar_t>>	Vars;			// 0x7C
+		skeetvec<BoxVars<wchar_t>>	Vars;			// 0x7C
 		char						pad4[0x20];
 	} *PCombobox;
 
@@ -738,7 +837,7 @@ namespace SkeetSDK {
 		Vec2				DefOuterPadding;	// 0x30
 		PXorW				CryptedName;		// 0x38
 		char				pad1[0x4];
-		vector<Call>		Calls;				// 0x40
+		skeetvec<Call>		Calls;				// 0x40
 		char				pad2[0x4];
 		VecCol				Color;				// 0x50
 		int					LeftPaddign;		// 0x54
@@ -750,7 +849,7 @@ namespace SkeetSDK {
 		char				pad1[0x4];
 		int					SelectedItem;	// 0x88
 		char				pad2[0x4];
-		vector<wchar_set>	Items;
+		skeetvec<wchar_set>	Items;
 		//wchar_set*  ItemsChunk;		// 0x90
 		//wchar_set*  ItemsChunkEnd;	// 0x94
 		//wchar_set*  ItemsCapacity;	// 0x98
@@ -772,7 +871,7 @@ namespace SkeetSDK {
 		char				pad1[0x8];
 		PXorW				CryptedName;		// 0x38
 		char				pad2[0x4];
-		vector<Call>		Calls;				// 0x40
+		skeetvec<Call>		Calls;				// 0x40
 		char				pad3[0x4];
 		VecCol				Color;				// 0x50
 		int					LeftPaddign;		// 0x54
@@ -785,9 +884,9 @@ namespace SkeetSDK {
 		int					SearchPresent;		// 0x7C
 		int					DisplayedCount;		// 0x80
 		ListboxInfo			Info;				// 0x84
-		vector<wchar_t>		Search;				// 0xA0
+		skeetvec<wchar_t>		Search;				// 0xA0
 		char				pad7[0x4];
-		vector<short>		SSpecs;				// 0xB0
+		skeetvec<short>		SSpecs;				// 0xB0
 		char				pad8[0x4];
 	} *PListbox;
 
@@ -800,7 +899,7 @@ namespace SkeetSDK {
 		char				pad1[0x8];
 		PXorW				CryptedName;		// 0x38
 		char				pad2[0x4];
-		vector<Call>		Calls;				// 0x40
+		skeetvec<Call>		Calls;				// 0x40
 		char				pad3[0x4];
 		VecCol				Color;				// 0x50
 		int					LeftPaddign;		// 0x54
@@ -817,7 +916,7 @@ namespace SkeetSDK {
 		char			pad2[0x1E];
 		PXorW			crypted;		// 0x38
 		char			pad3[0x4];
-		vector<Call>	Calls;			// 0x40
+		skeetvec<Call>	Calls;			// 0x40
 		char			pad4[0x10];
 		void*			value;			// 0x5C
 	} *PInspector;
@@ -852,7 +951,7 @@ namespace SkeetSDK {
 		Vec2				DefSize;			// 0x30
 		PXorW				CryptedName;		// 0x38
 		PUnkn				Unknown;			// 0x3C
-		vector<Call>		Calls;				// 0x40
+		skeetvec<Call>		Calls;				// 0x40
 		char				pad1[0x4];
 		VecCol				Color;				// 0x50
 		char				pad2[0x14];
@@ -860,7 +959,7 @@ namespace SkeetSDK {
 		Vec4_8t				PosSize;			// 0x70 block = minimum size child can be resized/moved by, x = blocks moved by X, y = blocks sized by X, z = blocks moved by Y, w = blocks sized by Y
 		Vec2				MouseLastPos;		// 0x74
 		ChildStatus			Status;				// 0x7C
-		vector<PElement>	Elements;			// 0x80
+		skeetvec<PElement>	Elements;			// 0x80
 		char				pad3[0x4];
 		PCWidg				PWidgets;			// 0x90
 		char				pad4[0x4];
@@ -907,32 +1006,32 @@ namespace SkeetSDK {
 
 	struct CTab : public ITab
 	{
-		Header<void>	Header;
-		Vec2			Pos;			// 0x20
-		Vec2			Size;			// 0x28
-		Vec2			DefSize;		// 0x30
-		PXorW			CryptedName;	// 0x38
-		char			pad1[0x14];
-		VecCol			Color;			// 0x50
-		char			pad2[0xC];
-		PCMenu			Menu;			// 0x60
-		char			pad3[0xC];
-		vector<PChild>	Childs;			// 0x70
-		TabIcon			Icon;			// 0x78
-		int				Padding;		// 0x94
-		void*			Chunk;			// 0x98
-		void*			ChunkEnd;		// 0x9C
-		PElement		CEs[0x20];		// 0xA0	childs and some elems lets say it will be 0x20 size for our allocation purposes
+		Header<void>		Header;
+		Vec2				Pos;			// 0x20
+		Vec2				Size;			// 0x28
+		Vec2				DefSize;		// 0x30
+		PXorW				CryptedName;	// 0x38
+		char				pad1[0x14];
+		VecCol				Color;			// 0x50
+		char				pad2[0xC];
+		PCMenu				Menu;			// 0x60
+		char				pad3[0xC];
+		skeetvec<PChild>	Childs;			// 0x70
+		TabIcon				Icon;				// 0x78
+		int					Padding;			// 0x94
+		void*				Chunk;				// 0x98
+		void*				ChunkEnd;			// 0x9C
+		void*				ChunkCapacityEnd;	// 0xA0
+		PElement			CEs[0x20];			// 0xA4	childs and some elems lets say it will be 0x20 size for our allocation purposes
 	};
 
 	//0x20 Struct for lua listbox chunk in Config tab
 	typedef struct
 	{
-		char		pad1[0x8];
-		int			OnStartup;		// 0x8
-		wchar_t*	NameChunk;		// 0xC
-		void*		NameChunkEnd;	// 0x10
-		char		pad2[0xC];
+		char				pad1[0x8];
+		int					OnStartup;	// 0x8
+		skeetvec<wchar_t>	Name;		// 0xC
+		char				pad2[0x8];
 	} LuaChunk;
 
 	struct CMenu
@@ -948,7 +1047,7 @@ namespace SkeetSDK {
 		MenuStatus		MenuStatus;			// 0x34
 		MouseInfo		Mouse;				// 0x38
 		char			pad2[0x8];
-		vector<PCTab>	Tabs;				// 0x54
+		skeetvec<PCTab>	Tabs;				// 0x54
 		char			pad3[0x4];
 		Tab				CurrentTab;			// 0x64
 		char			pad4[0x20];
@@ -1029,7 +1128,7 @@ namespace SkeetSDK {
 		virtual void fn35() = 0;
 		virtual void fn36() = 0;
 		virtual void fn37() = 0;
-		virtual void fn38() = 0;
+		virtual void __fastcall PolyCircle_Q(int precision_Q, void* points, size_t count) = 0;
 		virtual float __vectorcall fn39() = 0;
 		virtual void __fastcall fn40(int, int*, int*) = 0;
 	public:
@@ -1045,49 +1144,6 @@ namespace SkeetSDK {
 		PCMenu Menu;
 		void* ThreadInMainThread;
 	};
-
-	typedef struct {
-		unsigned char* ChunkStart;
-		unsigned char* ChunkEnd;
-		unsigned char* CappacityEnd;
-	} DataChunk;
-
-	namespace Memory {
-		class SigFinder
-		{
-			MODULEINFO info;
-			static sVec<int> ida_sig_resolver(const char* sig);
-		public:
-			SigFinder(const char* module);
-			SigFinder(LPVOID lpBaseAdress, DWORD SizeOfImage);
-			FORCECALL void* find(const char* sig, int offset = 0);
-			FORCECALL void* findr32(const char* sig);
-		};
-
-		class CHooked
-		{
-			bool Status;
-			void* Address;
-			unsigned char* OriginalBytes;
-			size_t BytesSize;
-			void* naked;
-		public:
-			CHooked(void* func, unsigned char* ogbytes, size_t size);
-			~CHooked();
-			void* Naked();
-			void Unhook();
-		};
-
-		class DetourHook
-		{
-			static sVec<CHooked*> Hooked;
-		public:
-			static CHooked* Hook(void* Dst, void* Src, size_t size = 5);
-			static void UnhookAll();
-		};
-		static SigFinder	CheatChunk((LPVOID)0x43310000, 0x2FC000u);
-		static AllocatorFn	Allocator = (AllocatorFn)CheatChunk.find("56 8B F1 33 C0 85");
-	} // namespace Memory
 
 //SDK Vars
 	static SkeetClass_* SCLASS = *(SkeetClass_**)Memory::CheatChunk.find("A1 ?? ?? ?? ?? 83 64 24 04 00 89 54 24 18 89 44 24 10 53 56", 0x1);
@@ -1245,6 +1301,7 @@ namespace SkeetSDK {
 		static void __fastcall MenuRenderListener(void* ecx, void* edx);
 		static void __fastcall RenderFinalListener(void* ecx, void* edx);
 		static void RemoveEvent(size_t index, RenderEventType type);
+		static void LoadTextureFromFile(CTexture& texture, const char* filename, TextureType type);
 		friend class EventListener;
 	MEMBERS_PUBLIC
 		static void Init();
@@ -1573,10 +1630,10 @@ namespace SkeetSDK
 
 	void Utils::LoadCfg(const char* cfgname)
 	{
-		DataChunk cfgchunk{ 0 };
+		skeetvec<unsigned char> cfgchunk;
 		GetConfigData(cfgname, &cfgchunk);
-		if (cfgchunk.ChunkStart)
-			LoadConfig(Menu, cfgchunk.ChunkStart, (int)cfgchunk.ChunkEnd - (int)cfgchunk.ChunkStart);
+		if (!cfgchunk.empty())
+			LoadConfig(Menu, cfgchunk._Unchecked_begin(), cfgchunk.size());
 	};
 
 	const wchar_t* Utils::CurrentConfig()
@@ -1759,25 +1816,25 @@ namespace SkeetSDK
 	void UI::SetColorRGBA(PCPicker picker, VecCol Color)
 	{
 		picker->Value[0] = Color;
-		Utils::Callback(&picker);
+		Utils::Callback(picker);
 	};
 
 	void UI::SetColorHSV(PCPicker picker, HSV Color)
 	{
 		picker->HSV = Color;
-		Utils::Callback(&picker);
+		Utils::Callback(picker);
 	};
 
 	void UI::SetSlider(PSlider slider, int value)
 	{
 		slider->Value[0] = value;
-		Utils::Callback(&slider);
+		Utils::Callback(slider);
 	};
 
 	void UI::SetCombobox(PCombobox combobox, int value)
 	{
-		combobox->SelectedItem = value;
-		Utils::Callback(&combobox);
+		combobox->Value[0] = value;
+		Utils::Callback(combobox);
 	};
 
 	void UI::SetListbox(PListbox listbox, int value)
@@ -1949,7 +2006,7 @@ namespace SkeetSDK
 		ptr->SSpecs.push_back(0);
 		for (size_t i = 0; i < arrsize;)
 		{
-			ptr->Info.Items.emplace_back(i++, vector<wchar_t>(arr[i], arr[i] + wcslen(arr[i]) + 1));
+			ptr->Info.Items.emplace_back(i++, skeetvec<wchar_t>(arr[i], arr[i] + wcslen(arr[i]) + 1));
 			ptr->SSpecs.push_back(i);
 		}
 		ptr->ItemsCount = arrsize;
@@ -1964,7 +2021,7 @@ namespace SkeetSDK
 			list->Info.Items.reserve(40);
 			list->SSpecs.reserve(40);
 		};
-		list->Info.Items.emplace_back(list->ItemsCount, vector<wchar_t>(elem, elem + wcslen(elem) + 1));
+		list->Info.Items.emplace_back(list->ItemsCount, skeetvec<wchar_t>(elem, elem + wcslen(elem) + 1));
 		list->Info.SelectedItem = list->ItemsCount;
 		list->SSpecs.push_back(++list->ItemsCount);
 	};
@@ -2212,78 +2269,63 @@ namespace SkeetSDK
 		};
 	};
 
-	void Renderer::LoadPNGTextureFromFile(CTexture& texture, const char* filename)
+	void Renderer::LoadTextureFromFile(CTexture& texture, const char* filename, TextureType type)
 	{
-		DataChunk textureChunk{ 0 };
-		DataChunk rawContent{ 0 };
+		skeetvec<unsigned char> textureChunk{ 0 };
+		skeetvec<unsigned char> rawContent{ 0 };
 		int width, heigth;
 		ExReadFile(&textureChunk, filename);
-		if (textureChunk.ChunkStart == textureChunk.ChunkEnd) return;
-		if (Renderer::LoadTexture(TEXTURE_PNG, textureChunk.ChunkStart, textureChunk.ChunkEnd - textureChunk.ChunkStart, &width, &heigth, &rawContent))
+		if (textureChunk.empty()) return;
+		if (Renderer::LoadTexture(type, textureChunk._Unchecked_begin(), textureChunk.size(), &width, &heigth, &rawContent))
 		{
-			int byteSize = (rawContent.ChunkEnd - rawContent.ChunkStart) >> 2;
-			if (byteSize != 0) {
-				unsigned int* ptr = (unsigned int*)rawContent.ChunkStart;
-				for (int i = 0; i < byteSize; ++i)
+			int pxielSize = rawContent.size() / 4;
+			if (pxielSize != 0) {
+				unsigned int* ptr = (unsigned int*)rawContent._Unchecked_begin();
+				for (int i = 0; i < pxielSize; ++i)
 					ptr[i] = _rotr(_byteswap_ulong(ptr[i]), 8);
 			}
-			int id = SCLASS->IRenderer->AddTexture(rawContent.ChunkStart, width, heigth, width * heigth * 4, 0, 0);
+			int id = SCLASS->IRenderer->AddTexture(rawContent._Unchecked_begin(), width, heigth, width * heigth * 4, 0, 0);
 			if (id > 0)
 			{
-				texture.type = TEXTURE_PNG;
+				texture.type = type;
 				texture.id = id;
 				texture.Size = { width, heigth };
 			}
 		}
 	};
 
+	void Renderer::LoadPNGTextureFromFile(CTexture& texture, const char* filename)
+	{
+		LoadTextureFromFile(texture, filename, TEXTURE_PNG);
+	};
+
 	void Renderer::LoadJPGTextureFromFile(CTexture& texture, const char* filename)
 	{
-		DataChunk textureChunk{ 0 };
-		DataChunk rawContent{ 0 };
-		int width, heigth;
-		ExReadFile(&textureChunk, filename);
-		if (textureChunk.ChunkStart == textureChunk.ChunkEnd) return;
-		if (Renderer::LoadTexture(TEXTURE_JPG, textureChunk.ChunkStart, textureChunk.ChunkEnd - textureChunk.ChunkStart, &width, &heigth, &rawContent))
-		{
-			int byteSize = (rawContent.ChunkEnd - rawContent.ChunkStart) >> 2;
-			if (byteSize != 0) {
-				unsigned int* ptr = (unsigned int*)rawContent.ChunkStart;
-				for (int i = 0; i < byteSize; ++i)
-					ptr[i] = _rotr(_byteswap_ulong(ptr[i]), 8);
-			}
-			int id = SCLASS->IRenderer->AddTexture(rawContent.ChunkStart, width, heigth, width * heigth * 4, 0, 0);
-			if (id > 0)
-			{
-				texture.type = TEXTURE_JPG;
-				texture.id = id;
-				texture.Size = { width, heigth };
-			}
-		}
+		LoadTextureFromFile(texture, filename, TEXTURE_JPG);
 	};
 
 	void Renderer::LoadTextureFromMemory(CTexture& texture, const unsigned char* data, size_t size, TextureType type, int width, int heigth)
 	{
 		if (size == 0) return;
-		int byteSize;
-		DataChunk rawContent{ 0 };
+		int pxielSize;
+		skeetvec<unsigned char> rawContent;
 		if (type == TEXTURE_RGBA)
 		{
 			if (width * heigth * 4 != size) return;
-			rawContent.ChunkStart = const_cast<unsigned char*>(data);
-			byteSize = width * heigth;
+			rawContent.assign(data, data+size);
+			pxielSize = width * heigth;
 		}
 		else
 		{
 			if (!Renderer::LoadTexture(type, data, size, &width, &heigth, &rawContent)) return;
-			byteSize = (rawContent.ChunkEnd - rawContent.ChunkStart) >> 2;
+			pxielSize = rawContent.size() / 4;
 		}
 
-		if (byteSize == 0) return;
-		unsigned int* ptr = (unsigned int*)rawContent.ChunkStart;
-		for (int i = 0; i < byteSize; ++i)
+		if (pxielSize == 0) return;
+		unsigned int* ptr = (unsigned int*)rawContent._Unchecked_begin();
+		for (int i = 0; i < pxielSize; ++i)
 			ptr[i] = _rotr(_byteswap_ulong(ptr[i]), 8);
-		int id = SCLASS->IRenderer->AddTexture(rawContent.ChunkStart, width, heigth, width * heigth * 4, 0, 0);
+		int id = SCLASS->IRenderer->AddTexture(rawContent._Unchecked_begin(), width, heigth, width * heigth * 4, 0, 0);
 		if (id > 0)
 		{
 			texture.type = type;
