@@ -4,7 +4,6 @@
 #include <Windows.h>
 #include <psapi.h>
 #include <vector>
-// "8B 41 08 2B 01 83 F8" freeing allocated mem
 
 #if defined(__GNUC__) || defined(__GNUG__)
 #define FORCECALL __attribute__((noinline))
@@ -482,9 +481,9 @@ namespace SkeetSDK {
 			static void UnhookAll();
 		};
 		static SigFinder	CheatChunk((LPVOID)0x43310000, 0x2FC000u);
-		static AllocatorFn	Allocator = (AllocatorFn)CheatChunk.find("56 8B F1 33 C0 85");
-		static ThisFn		Deallocator = (ThisFn)CheatChunk.find("8B 41 08 2B 01 83 F8"); // its vector deallocator, verifies vec and calls raw deallocator
-		static ThisFn		_RawDealloc = (ThisFn)CheatChunk.find("85 C9 74 17 8D 41 F0 2B 40 08 50 64 A1 30 00 00 00 6A 00 FF 70 18 E8 ?? ?? ?? ?? C3"); // its raw deallocator
+		static AllocatorFn	Allocator;
+		static ThisFn		Deallocator; // its vector deallocator, verifies vec and calls raw deallocator
+		static ThisFn		_RawDealloc; // its raw deallocator
 
 		template<typename T>
 		class SkeetAllocator
@@ -523,8 +522,7 @@ namespace SkeetSDK {
 
 			void deallocate(pointer ptr, size_type) noexcept
 			{
-				if (ptr)
-					_RawDealloc(ptr);
+				_RawDealloc(ptr);
 			};
 
 			template<typename U, typename... Args>
@@ -1146,11 +1144,12 @@ namespace SkeetSDK {
 	};
 
 //SDK Vars
-	static SkeetClass_* SCLASS = *(SkeetClass_**)Memory::CheatChunk.find("A1 ?? ?? ?? ?? 83 64 24 04 00 89 54 24 18 89 44 24 10 53 56", 0x1);
-	static PCMenu Menu = SCLASS->Menu;
+	static SkeetClass_* SCLASS = nullptr;
+	static PCMenu Menu = nullptr;
 //SDK Classes
 	class Utils final
 	{
+		friend void __stdcall InitAndWaitForSkeet();
 		friend class UI;
 	MEMBERS_PRIVATE
 		static GetConfigDataFn	GetConfigData;
@@ -1188,6 +1187,7 @@ namespace SkeetSDK {
 
 	class UI final
 	{
+		friend void __stdcall InitAndWaitForSkeet();
 	MEMBERS_PRIVATE
 		static ThisIntFn		TabSwitch;
 		static ThisIntFn		SetList;
@@ -1342,6 +1342,7 @@ namespace SkeetSDK {
 
 	class CEngine final
 	{
+		friend void __stdcall InitAndWaitForSkeet();
 		friend class Globals;
 		friend class Client;
 		static void**** EngineCtx;
@@ -1369,6 +1370,7 @@ namespace SkeetSDK {
 
 	class Globals final
 	{
+		friend void __stdcall InitAndWaitForSkeet();
 	MEMBERS_PRIVATE
 		static GlobalsInfo** GlobalsCtx;
 	MEMBERS_PUBLIC
@@ -1389,6 +1391,7 @@ namespace SkeetSDK {
 
 	class Client final
 	{
+		friend void __stdcall InitAndWaitForSkeet();
 	MEMBERS_PRIVATE
 		static LogFn Logger;
 		static LogErrorFn LoggerError;
@@ -1586,19 +1589,18 @@ namespace SkeetSDK
 	}; // Memory namepsace
 
 	// Utils Implementation
-	CFn				Utils::GetState			= (CFn)Memory::CheatChunk.find("A1 ?? ?? ?? ?? 85 C0 75 01 C3 83 C0 44 C3");
-	PCLuas			Utils::LuaInfo			= *(PCLuas*)Memory::CheatChunk.find("A1 ?? ?? ?? ?? 85 C0 75 01 C3 83 C0 44 C3", 0x1);
-	LoadLuaFn		Utils::LoadLua			= (LoadLuaFn)Memory::CheatChunk.find("83 EC 4C 53 55 33");
-	DecryptFn		Utils::Decrypt			= (DecryptFn)Memory::CheatChunk.find("51 51 55 56 8B C2");
-	CryptFn			Utils::Crypt			= (CryptFn)Memory::CheatChunk.find("51 53 8B 5C 24 0C 55 56 8B E9");
-	ThisFn			Utils::InitTab			= (ThisFn)Memory::CheatChunk.find("55 8B EC 83 E4 F8 83 EC 30 53 8B");
-	ThisFn			Utils::Callback			= (ThisFn)Memory::CheatChunk.find("53 56 57 8B F9 8B 5F 44");
-	CFn				Utils::InitState		= (CFn)Memory::CheatChunk.find("55 8B EC 83 EC 2C 56 57 E8");
-	GetConfigDataFn Utils::GetConfigData	= (GetConfigDataFn)Memory::CheatChunk.find("55 8B EC 83 EC 18 56 57 89");
-	LoadConfigFn	Utils::LoadConfig		= (LoadConfigFn)Memory::CheatChunk.find("55 8B EC 83 E4 F8 83 EC 40 56 57 8B FA");
-	HashFn			Utils::Hash				= (HashFn)Memory::CheatChunk.find("56 8B F1 BA C5");
-
-	unsigned int*	Utils::HashedCfgName = *(unsigned int**)Memory::CheatChunk.find("A3 ?? ?? ?? ?? 8B CC 8D 44 24 30 89 7C 24 10", 0x1);
+	CFn				Utils::GetState			= nullptr;
+	PCLuas			Utils::LuaInfo			= nullptr;
+	LoadLuaFn		Utils::LoadLua			= nullptr;
+	DecryptFn		Utils::Decrypt			= nullptr;
+	CryptFn			Utils::Crypt			= nullptr;
+	ThisFn			Utils::InitTab			= nullptr;
+	ThisFn			Utils::Callback			= nullptr;
+	CFn				Utils::InitState		= nullptr;
+	GetConfigDataFn Utils::GetConfigData	= nullptr;
+	LoadConfigFn	Utils::LoadConfig		= nullptr;
+	HashFn			Utils::Hash				= nullptr;
+	unsigned int*	Utils::HashedCfgName	= nullptr;
 
 
 	unsigned int Utils::ChildsCount(PCTab tab)
@@ -1716,32 +1718,32 @@ namespace SkeetSDK
 	};
 
 	// UI Implementation
-	ThisIntFn		UI::TabSwitch		= (ThisIntFn)Memory::CheatChunk.find("56 8B F1 57 8B 7C 24 0C 8B 4E 64");
-	ThisIntFn		UI::SetList			= (ThisIntFn)Memory::CheatChunk.find("8B 81 94 00 00 00 2B");
-	ThisFn			UI::ChildLayout		= (ThisFn)Memory::CheatChunk.find("55 8B EC 83 E4 F8 83 EC 10 53 55");
-	ThisFn			UI::KeyInit			= (ThisFn)Memory::CheatChunk.find("8B D1 B9 ?? ?? ?? ?? E9");
-	SetKeyFn		UI::SetKey			= (SetKeyFn)Memory::CheatChunk.find("81 EC 08 02 00 00 53");
-	SetCheckFn		UI::SetCheck		= (SetCheckFn)Memory::CheatChunk.find("8B 41 5C 53 85");
-	HideUiFn		UI::HideUi			= (HideUiFn)Memory::CheatChunk.find("8A 44 24 04 38");
-	F2PFn			UI::DeleteUi		= (F2PFn)Memory::CheatChunk.find("83 EC 0C A1 24");
-	T2PFn			UI::InsertTab		= (T2PFn)Memory::CheatChunk.find("8B 41 58 83 C1");
-	T2PFn			UI::InsertChildr	= (T2PFn)Memory::CheatChunk.find("55 8B EC 8B 45 08 56 8B F1 89");
-	InsertFn		UI::InsertElem		= (InsertFn)Memory::CheatChunk.find("56 57 8B F9 8B 4F 10");
-	AddLabelFn		UI::AddLabel		= (AddLabelFn)Memory::CheatChunk.find("55 8B EC 56 57 8B F9 6A");
-	AddButtonFn		UI::AddButton		= (AddButtonFn)Memory::CheatChunk.find("55 8B EC 83 E4 F8 51 51 56 57 8B F9 6A");
-	LConFn			UI::LabelCon		= (LConFn)Memory::CheatChunk.find("56 6A 00 6A 08");
-	BConFn			UI::ButtonCon		= (BConFn)Memory::CheatChunk.find("55 8B EC 83 EC 0C 56 6A");
-	TBConFn			UI::TextboxCon		= (TBConFn)Memory::CheatChunk.find("56 57 33 FF 8B F1 57 6A 0A");
-	TCConFn			UI::CheckboxCon		= (TCConFn)Memory::CheatChunk.find("56 FF 74 24 10 8B F1 6A");
-	SConFn			UI::SliderCon		= (SConFn)Memory::CheatChunk.find("55 8B EC 53 56 FF");
-	HKConFn			UI::HotkeyCon		= (HKConFn)Memory::CheatChunk.find("53 8B 5C 24 0C 56 53");
-	CPConFn			UI::CPickerCon		= (CPConFn)Memory::CheatChunk.find("53 56 57 FF 74 24 14 8B D9 6A");
-	CBConFn			UI::ComboboxCon		= (CBConFn)Memory::CheatChunk.find("56 57 FF 74 24 14 8B F1 6A 04");
-	MConFn			UI::MultiCon		= (MConFn)Memory::CheatChunk.find("56 57 FF 74 24 14 8B F1 6A 0D");
-	LBConFn			UI::ListboxCon		= (LBConFn)Memory::CheatChunk.find("55 8B EC 53 56 57 FF 75 18");
-	CHConFn			UI::ChildCon		= (CHConFn)Memory::CheatChunk.find("55 8B EC 56 FF 75 18");
-	TCConFn			UI::TabCon			= (TCConFn)Memory::CheatChunk.find("56 57 33 FF 8B F1 57 6A 01");
-	GetTBoxTextFn	UI::GetTBoxText		= (GetTBoxTextFn)Memory::CheatChunk.find("53 55 8B E9 8B 5D 04 85 DB 74 4B EB 02 F3 90 33 C0 40 87 45 00 85 C0 75 F4 8B 5D 04 83 FB 41");
+	ThisIntFn		UI::TabSwitch		= nullptr;
+	ThisIntFn		UI::SetList			= nullptr;
+	ThisFn			UI::ChildLayout		= nullptr;
+	ThisFn			UI::KeyInit			= nullptr;
+	SetKeyFn		UI::SetKey			= nullptr;
+	SetCheckFn		UI::SetCheck		= nullptr;
+	HideUiFn		UI::HideUi			= nullptr;
+	F2PFn			UI::DeleteUi		= nullptr;
+	T2PFn			UI::InsertTab		= nullptr;
+	T2PFn			UI::InsertChildr	= nullptr;
+	InsertFn		UI::InsertElem		= nullptr;
+	AddLabelFn		UI::AddLabel		= nullptr;
+	AddButtonFn		UI::AddButton		= nullptr;
+	LConFn			UI::LabelCon		= nullptr;
+	BConFn			UI::ButtonCon		= nullptr;
+	TBConFn			UI::TextboxCon		= nullptr;
+	TCConFn			UI::CheckboxCon		= nullptr;
+	SConFn			UI::SliderCon		= nullptr;
+	HKConFn			UI::HotkeyCon		= nullptr;
+	CPConFn			UI::CPickerCon		= nullptr;
+	CBConFn			UI::ComboboxCon		= nullptr;
+	MConFn			UI::MultiCon		= nullptr;
+	LBConFn			UI::ListboxCon		= nullptr;
+	CHConFn			UI::ChildCon		= nullptr;
+	TCConFn			UI::TabCon			= nullptr;
+	GetTBoxTextFn	UI::GetTBoxText		= nullptr;
 
 	void UI::ResetLayout()
 	{
@@ -2053,7 +2055,7 @@ namespace SkeetSDK
 		InsertChild(tab, ptr);
 		return ptr;
 	};
-
+	// BEWARE: INSERTS ON TOP
 	PCTab UI::CreateTab(wchar_t* name, Vec2 pos)
 	{
 		PCTab ptr = (PCTab)Memory::Allocator(sizeof(CTab));
@@ -2069,16 +2071,16 @@ namespace SkeetSDK
 	};
 
 #ifdef SDK_RENDERER_IMP
-	Memory::CHooked*	Renderer::RenderHook		= NULL;
-	Memory::CHooked*	Renderer::MenuRenderHook	= NULL;
-	Memory::CHooked*	Renderer::FinalRenderHook	= NULL;
-	ReadFileFn			Renderer::ExReadFile		= NULL;
-	LoadTextureFn		Renderer::LoadTexture		= NULL;
-	LoadSvgFormFileFn	Renderer::LoadSvgFromFile	= NULL;
-	RenderIndicatorFn	Renderer::RenderIndicator	= NULL;
-	WorldToScreenFn		Renderer::WorldToScreen		= NULL;
-	RenderBlurFn		Renderer::RenderBlur		= NULL;
-	void*				Renderer::RenderBlurCtx		= NULL;
+	Memory::CHooked*	Renderer::RenderHook		= nullptr;
+	Memory::CHooked*	Renderer::MenuRenderHook	= nullptr;
+	Memory::CHooked*	Renderer::FinalRenderHook	= nullptr;
+	ReadFileFn			Renderer::ExReadFile		= nullptr;
+	LoadTextureFn		Renderer::LoadTexture		= nullptr;
+	LoadSvgFormFileFn	Renderer::LoadSvgFromFile	= nullptr;
+	RenderIndicatorFn	Renderer::RenderIndicator	= nullptr;
+	WorldToScreenFn		Renderer::WorldToScreen		= nullptr;
+	RenderBlurFn		Renderer::RenderBlur		= nullptr;
+	void*				Renderer::RenderBlurCtx		= nullptr;
 	sVec<RenderEventListenerFn> Renderer::RenderEvents(40);
 	sVec<RenderEventListenerFn> Renderer::MenuEvents(40);
 	sVec<RenderEventListenerFn> Renderer::FinalEvents(40);
@@ -2139,7 +2141,7 @@ namespace SkeetSDK
 
 	void Renderer::Term()
 	{
-		if (RenderHook == NULL) return;
+		if (RenderHook == nullptr) return;
 		RenderEvents.~sVec();
 		MenuEvents.~sVec();
 		FinalEvents.~sVec();
@@ -2335,10 +2337,10 @@ namespace SkeetSDK
 	};
 #endif // SDK_RENDERER_IMP
 #if defined(SDK_GLOBALS_IMP) || defined(SDK_CLIENT_IMP)
-	void**** CEngine::EngineCtx = *(void*****)Memory::CheatChunk.find("8B 0D ?? ?? ?? ?? 8D 94 24 B0 02 00 00 52 57", 0x2);
-	CommandsInfo** CEngine::CommandsCtx = *(CommandsInfo***)Memory::CheatChunk.find("8B 3D ?? ?? ?? ?? 8B 48 04 3B 0F 7E 07", 0x2);
-	SetClanTagFn CEngine::SetTag = **(SetClanTagFn**)Memory::CheatChunk.find("C6 41 0F 00 FF 15 ?? ?? ?? ?? 66 C7 46 20 01 00 EB 4D", 0x6);
-	unsigned int* CEngine::PredComm = *(unsigned int**)Memory::CheatChunk.find("A3 ?? ?? ?? ?? E8 ?? ?? ?? ?? 59 85 C0 7E 1D 8B 4D 08 8D 85 00 F0 FF FF", 0x1);
+	void**** CEngine::EngineCtx				= nullptr;
+	CommandsInfo** CEngine::CommandsCtx		= nullptr;
+	SetClanTagFn CEngine::SetTag			= nullptr;
+	unsigned int* CEngine::PredComm			= nullptr;
 
 	bool CEngine::IsInGame()
 	{
@@ -2371,7 +2373,7 @@ namespace SkeetSDK
 #endif // SDK_GLOBALS_IMP || SDK_CLIENT_IMP
 
 #ifdef SDK_GLOBALS_IMP
-	GlobalsInfo** Globals::GlobalsCtx = *(GlobalsInfo***)Memory::CheatChunk.find("8B 0D ?? ?? ?? ?? 8B 54 24 20 D8 71 20", 0x2);
+	GlobalsInfo** Globals::GlobalsCtx = nullptr;
 	bool Globals::IsInGame()
 	{
 		return CEngine::IsInGame();
@@ -2442,10 +2444,10 @@ namespace SkeetSDK
 #endif // SDK_GLOBALS_IMP
 
 #ifdef SDK_CLIENT_IMP
-	LogFn		Client::Logger			= (LogFn)Memory::CheatChunk.find("55 8B EC 83 E4 F8 83 EC 20 80");
-	LogErrorFn	Client::LoggerError		= (LogErrorFn)Memory::CheatChunk.find("55 8B EC 83 E4 F8 81 EC 40 20");
-	void***		Client::LoggerCtx		= **(void*****)Memory::CheatChunk.find("A1 ?? ?? ?? ?? 83 C4 0C 8B 08 56 68 ?? ?? ?? ?? 50 FF 51 68", 0x1);
-	ScreenLogFn	Client::ScreenLogger	= (ScreenLogFn)Memory::CheatChunk.find("56 8B F1 8B 0D CC");
+	LogFn		Client::Logger			= nullptr;
+	LogErrorFn	Client::LoggerError		= nullptr;
+	void***		Client::LoggerCtx		= nullptr;
+	ScreenLogFn	Client::ScreenLogger	= nullptr;
 
 	void Client::Exec(const char* cmd)
 	{
@@ -2491,5 +2493,92 @@ namespace SkeetSDK
 		LoggerError(msg);
 	};
 #endif // SDK_CLIENT_IMP
+	void __stdcall InitAndWaitForSkeet()
+	{
+		using namespace Memory;
+
+		{
+			bool loaded = false;
+			do
+			{
+				MEMORY_BASIC_INFORMATION mbi;
+				VirtualQuery((LPVOID)0x43310000, &mbi, sizeof(MEMORY_BASIC_INFORMATION));
+				if (mbi.State == MEM_COMMIT)
+					loaded = true;
+				else
+					Sleep(100);
+			} while (!loaded);
+		};
+
+		do
+		{
+			Allocator = (AllocatorFn)CheatChunk.find("56 8B F1 33 C0 85");
+			Sleep(10);
+		} while (Allocator == nullptr);
+
+		Deallocator = (ThisFn)CheatChunk.find("8B 41 08 2B 01 83 F8");
+		_RawDealloc = (ThisFn)CheatChunk.find("85 C9 74 17 8D 41 F0 2B 40 08 50 64 A1 30 00 00 00 6A 00 FF 70 18 E8 ?? ?? ?? ?? C3");
+		SCLASS = *(SkeetClass_**)CheatChunk.find("A1 ?? ?? ?? ?? 83 64 24 04 00 89 54 24 18 89 44 24 10 53 56", 0x1);
+		Menu = SCLASS->Menu;
+		do
+		{
+			Menu = SCLASS->Menu;
+			Sleep(10);
+		} while (!Menu);
+
+		Utils::GetState = (CFn)CheatChunk.find("A1 ?? ?? ?? ?? 85 C0 75 01 C3 83 C0 44 C3");
+		Utils::LuaInfo = *(PCLuas*)CheatChunk.find("A1 ?? ?? ?? ?? 85 C0 75 01 C3 83 C0 44 C3", 0x1);
+		Utils::LoadLua = (LoadLuaFn)CheatChunk.find("83 EC 4C 53 55 33");
+		Utils::Decrypt = (DecryptFn)CheatChunk.find("51 51 55 56 8B C2");
+		Utils::Crypt = (CryptFn)CheatChunk.find("51 53 8B 5C 24 0C 55 56 8B E9");
+		Utils::InitTab = (ThisFn)CheatChunk.find("55 8B EC 83 E4 F8 83 EC 30 53 8B");
+		Utils::Callback = (ThisFn)CheatChunk.find("53 56 57 8B F9 8B 5F 44");
+		Utils::InitState = (CFn)CheatChunk.find("55 8B EC 83 EC 2C 56 57 E8");
+		Utils::GetConfigData = (GetConfigDataFn)CheatChunk.find("55 8B EC 83 EC 18 56 57 89");
+		Utils::LoadConfig = (LoadConfigFn)CheatChunk.find("55 8B EC 83 E4 F8 83 EC 40 56 57 8B FA");
+		Utils::Hash = (HashFn)CheatChunk.find("56 8B F1 BA C5");
+		Utils::HashedCfgName = *(unsigned int**)CheatChunk.find("A3 ?? ?? ?? ?? 8B CC 8D 44 24 30 89 7C 24 10", 0x1);
+		UI::TabSwitch = (ThisIntFn)CheatChunk.find("56 8B F1 57 8B 7C 24 0C 8B 4E 64");
+		UI::SetList = (ThisIntFn)CheatChunk.find("8B 81 94 00 00 00 2B");
+		UI::ChildLayout = (ThisFn)CheatChunk.find("55 8B EC 83 E4 F8 83 EC 10 53 55");
+		UI::KeyInit = (ThisFn)CheatChunk.find("8B D1 B9 ?? ?? ?? ?? E9");
+		UI::SetKey = (SetKeyFn)CheatChunk.find("81 EC 08 02 00 00 53");
+		UI::SetCheck = (SetCheckFn)CheatChunk.find("8B 41 5C 53 85");
+		UI::HideUi = (HideUiFn)CheatChunk.find("8A 44 24 04 38");
+		UI::DeleteUi = (F2PFn)CheatChunk.find("83 EC 0C A1 24");
+		UI::InsertTab = (T2PFn)CheatChunk.find("8B 41 58 83 C1");
+		UI::InsertChildr = (T2PFn)CheatChunk.find("55 8B EC 8B 45 08 56 8B F1 89");
+		UI::InsertElem = (InsertFn)CheatChunk.find("56 57 8B F9 8B 4F 10");
+		UI::AddLabel = (AddLabelFn)CheatChunk.find("55 8B EC 56 57 8B F9 6A");
+		UI::AddButton = (AddButtonFn)CheatChunk.find("55 8B EC 83 E4 F8 51 51 56 57 8B F9 6A");
+		UI::LabelCon = (LConFn)CheatChunk.find("56 6A 00 6A 08");
+		UI::ButtonCon = (BConFn)CheatChunk.find("55 8B EC 83 EC 0C 56 6A");
+		UI::TextboxCon = (TBConFn)CheatChunk.find("56 57 33 FF 8B F1 57 6A 0A");
+		UI::CheckboxCon = (TCConFn)CheatChunk.find("56 FF 74 24 10 8B F1 6A");
+		UI::SliderCon = (SConFn)CheatChunk.find("55 8B EC 53 56 FF");
+		UI::HotkeyCon = (HKConFn)CheatChunk.find("53 8B 5C 24 0C 56 53");
+		UI::CPickerCon = (CPConFn)CheatChunk.find("53 56 57 FF 74 24 14 8B D9 6A");
+		UI::ComboboxCon = (CBConFn)CheatChunk.find("56 57 FF 74 24 14 8B F1 6A 04");
+		UI::MultiCon = (MConFn)CheatChunk.find("56 57 FF 74 24 14 8B F1 6A 0D");
+		UI::ListboxCon = (LBConFn)CheatChunk.find("55 8B EC 53 56 57 FF 75 18");
+		UI::ChildCon = (CHConFn)CheatChunk.find("55 8B EC 56 FF 75 18");
+		UI::TabCon = (TCConFn)CheatChunk.find("56 57 33 FF 8B F1 57 6A 01");
+		UI::GetTBoxText = (GetTBoxTextFn)CheatChunk.find("53 55 8B E9 8B 5D 04 85 DB 74 4B EB 02 F3 90 33 C0 40 87 45 00 85 C0 75 F4 8B 5D 04 83 FB 41");
+#if defined(SDK_GLOBALS_IMP) || defined(SDK_CLIENT_IMP)
+		CEngine::EngineCtx = *(void*****)CheatChunk.find("8B 0D ?? ?? ?? ?? 8D 94 24 B0 02 00 00 52 57", 0x2);
+		CEngine::CommandsCtx = *(CommandsInfo***)CheatChunk.find("8B 3D ?? ?? ?? ?? 8B 48 04 3B 0F 7E 07", 0x2);
+		CEngine::SetTag = **(SetClanTagFn**)CheatChunk.find("C6 41 0F 00 FF 15 ?? ?? ?? ?? 66 C7 46 20 01 00 EB 4D", 0x6);
+		CEngine::PredComm = *(unsigned int**)CheatChunk.find("A3 ?? ?? ?? ?? E8 ?? ?? ?? ?? 59 85 C0 7E 1D 8B 4D 08 8D 85 00 F0 FF FF", 0x1);
+#endif // SDK_GLOBALS_IMP || SDK_CLIENT_IMP
+#ifdef SDK_GLOBALS_IMP
+		Globals::GlobalsCtx = *(GlobalsInfo***)CheatChunk.find("8B 0D ?? ?? ?? ?? 8B 54 24 20 D8 71 20", 0x2);
+#endif
+#ifdef SDK_CLIENT_IMP
+		Client::Logger = (LogFn)CheatChunk.find("55 8B EC 83 E4 F8 83 EC 20 80");
+		Client::LoggerError = (LogErrorFn)CheatChunk.find("55 8B EC 83 E4 F8 81 EC 40 20");
+		Client::LoggerCtx = **(void*****)CheatChunk.find("A1 ?? ?? ?? ?? 83 C4 0C 8B 08 56 68 ?? ?? ?? ?? 50 FF 51 68", 0x1);
+		Client::ScreenLogger = (ScreenLogFn)CheatChunk.find("56 8B F1 8B 0D CC");
+#endif
+	};
 };
 #endif // SKEET_H
